@@ -6,7 +6,8 @@
  * Reads are open (the sheet is already public). Every write needs the PIN below.
  */
 const PIN = "CHANGE-ME";                       // ← ตั้ง PIN ของคุณที่นี่ (อย่าน้อย 4 ตัว)
-const READ_SHEETS = ["Reservation", "OTA Villa Matching"];
+const SHEET_ID = "14wKzPRBXoMwkn53cp3csjuzt3RyRTrD6EMp1zHybqIA";
+const READ_SHEETS =["Reservation", "OTA Villa Matching"];
 const WRITE_SHEETS = ["Reservation"];
 
 function doGet() {
@@ -20,7 +21,7 @@ function doPost(e) {
     const args = req.args || {};
     const range = String(args.range || "");
     const sheetName = range.split("!")[0].replace(/^'(.*)'$/, "$1");
-    const ss = SpreadsheetApp.getActive();
+    const ss = SpreadsheetApp.openById(SHEET_ID);
 
     if (tool === "check_pin") return out_({ ok: pinOk_(req.pin) });
 

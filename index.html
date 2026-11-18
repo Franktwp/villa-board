@@ -2,9 +2,31 @@
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}
-/* GitHub Pages build: hide controls that need the claude.ai shared database or write access to the sheet */
-[data-act="badd"],[data-bedit],[data-act="nmark"]{display:none!important}</style>
-
+/* GitHub Pages build: hide controls that need the claude.ai shared database */
+[data-act="nmark"]{display:none!important}</style>
+<script>
+(function(){
+  var URL_ = "https://script.google.com/macros/s/AKfycbzZkHbaPGsZXefvktKTEhmaT525WeSAXuN3beKEefLGMTh77tw06JOUqYyv1s_d4m82Zw/exec", KEY = "vb_pin";
+  function getPin(){ try { return localStorage.getItem(KEY) || ""; } catch(e){ return ""; } }
+  function setPin(p){ try { p ? localStorage.setItem(KEY, p) : localStorage.removeItem(KEY); } catch(e){} }
+  async function call(tool, args){
+    var write = tool !== "get_values", pin = "";
+    if (write) {
+      pin = getPin();
+      if (!pin) { pin = (window.prompt("ใส่รหัส PIN สำหรับบันทึกการจอง") || "").trim(); if (!pin) throw { code:"no_pin" }; }
+    }
+    var r;
+    try { r = await fetch(URL_, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify({ tool: tool, args: args, pin: pin }) }); }
+    catch(e){ throw { code:"net" }; }
+    var j; try { j = await r.json(); } catch(e){ throw { code:"net" }; }
+    if (!j.ok) { if (j.code === "bad_pin") setPin(""); throw { code: j.code === "bad_pin" ? "bad_pin" : "tool_error", message: j.message || j.code }; }
+    if (write) setPin(pin);
+    return { payload: { values: j.values || [], range: args.range } };
+  }
+  var mcp = { callTool: function(server, tool, args){ return call(tool, args || {}); } };
+  window.claude = { use: function(name){ return name === "mcp" ? Promise.resolve(mcp) : Promise.reject(new Error("not available")); } };
+})();
+</script>
 </head><body>
 <title>Villa Board</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -758,7 +780,7 @@ async function initStore(){
   }
   if (!db) {
     S.dbState = "none"; S.can.write = false; S.can.admin = false;
-    setBanner("db", "info", "อ่านอย่างเดียว: ข้อมูลดึงจาก Google Sheet โดยตรง ถ้าต้องการเพิ่ม/แก้ไขการจองหรือวิลล่า ให้เปิดเวอร์ชันบน claude.ai");
+    setBanner("db", "info", "ข้อมูลดึงจาก Google Sheet โดยตรง · เพิ่ม/แก้ไขการจองได้ (ต้องใส่ PIN) · แก้ข้อมูลวิลล่าได้บน claude.ai");
     useSheetVillas(); render(); return;
   }
   S.dbState = "ok";
