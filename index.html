@@ -1,0 +1,1946 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}
+/* GitHub Pages build is read-only: hide controls that write to the sheet or the shared database */
+[data-act="badd"],[data-bedit],[data-act="nmark"]{display:none!important}</style>
+</head><body>
+<title>Villa Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky app bar (brand, module nav, refresh) over one working pane per route: Villa Management table, Villa Detail (header + tabs), Bookings list, Booking Calendar. Forms and confirms open as modals. */
+:root{
+  --bg:#F9FBFA; --surface:#FFFFFF; --surface-2:#F1F5F4; --line:#E3E9E7; --line-strong:#CDD7D4;
+  --fg:#14211E; --muted:#5B6D68;
+  --accent:#0E6B5A; --accent-fg:#FFFFFF; --accent-soft:#DCEFEA;
+  --in:#13804B; --in-soft:#DDF3E6; --out:#B4600B; --out-soft:#FBEBD6; --stay:#2D5DA8; --stay-soft:#E1EAF8;
+  --bad:#B42318; --bad-soft:#FBE3E0; --warn:#8A6100; --warn-soft:#FFF3CC;
+  --st-active:#13804B; --st-active-bg:#DDF3E6; --st-inactive:#5E6966; --st-inactive-bg:#ECEFEE; --st-maint:#B4600B; --st-maint-bg:#FBEBD6;
+  --p-airbnb:#C1343B; --p-airbnb-bg:#FDE7E8; --p-booking:#123E8C; --p-booking-bg:#E2EAF8; --p-agoda:#6B3FA0; --p-agoda-bg:#EEE6F8;
+  --p-trip:#1C64D6; --p-trip-bg:#E2EEFE; --p-direct:#0E6B5A; --p-direct-bg:#DCEFEA; --p-other:#5E6966; --p-other-bg:#ECEFEE;
+  --line-green:#06C755; --line-green-fg:#FFFFFF;
+  --shadow:0 1px 2px rgba(20,33,30,.05),0 4px 14px rgba(20,33,30,.05);
+  --f-body:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:12px;
+}
+/* Light-only by design: the page keeps the same bright palette in every viewer theme. */
+:root,:root[data-theme="dark"]{color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14.5px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono);font-size:12.5px}
+.muted{color:var(--muted)}
+h1,h2,h3{text-wrap:balance}
+
+/* app shell: left sidebar + content */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+.sidebar{position:sticky;top:env(safe-area-inset-top,0px);height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));z-index:20;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:18px;padding-block:18px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:14px}
+.brand{font-weight:700;font-size:17px;display:flex;align-items:center;gap:9px;padding:0 6px}
+.brand i{width:28px;height:28px;border-radius:8px;background:var(--accent);display:inline-grid;place-items:center;color:var(--accent-fg);font-style:normal;font-size:13px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{text-decoration:none;color:var(--muted);font-weight:500;padding:9px 10px;border-radius:8px;display:flex;align-items:center;gap:10px}
+.nav a svg{width:18px;height:18px;flex:none}
+.nav a:hover{background:var(--surface-2);color:var(--fg)}
+.nav a[aria-current="page"]{background:var(--accent-soft);color:var(--fg);font-weight:600}
+.nav a[aria-current="page"] svg{color:var(--accent)}
+.sidefoot{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:0 6px}
+.sync{font-size:12.5px;color:var(--muted)}
+/* phones & small tablets: compact top bar + bottom tab bar */
+@media (max-width:900px){
+  .app{display:block}
+  .sidebar{height:auto;flex-direction:row;align-items:center;gap:10px;border-right:0;border-bottom:1px solid var(--line);padding-block:8px;padding-right:max(14px,env(safe-area-inset-right,0px))}
+  .brand{font-size:16px;padding:0;white-space:nowrap}
+  .sync{max-width:9em;line-height:1.25}
+  .nav{position:fixed;left:0;right:0;bottom:0;z-index:35;flex-direction:row;gap:0;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(20,33,30,.06);
+    padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
+  .nav a{flex:1 1 0;flex-direction:column;gap:3px;padding:6px 4px;font-size:11.5px;line-height:1.2;text-align:center;justify-content:center;min-height:52px}
+  .nav a svg{width:22px;height:22px}
+  .nav a[aria-current="page"]{background:var(--accent-soft)}
+  .sidefoot{margin:0 0 0 auto;flex-direction:row;align-items:center;gap:8px;padding:0}
+  .sync{font-size:11.5px}
+  main .wrap{padding-block:14px calc(90px + env(safe-area-inset-bottom,0px))}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+}
+
+/* buttons & inputs */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;font-weight:500;font-size:13.5px;text-decoration:none;color:var(--fg);white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.line{background:var(--line-green);color:var(--line-green-fg);border-color:var(--line-green);font-weight:600}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px}
+.btn.icon{width:32px;padding:0}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed;pointer-events:none}
+.spin svg{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin svg{animation:none}}
+.inp,.sel{height:36px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);padding:0 10px;font-size:13.5px;min-width:0}
+.sel{padding-right:6px}
+textarea.inp{height:auto;min-height:72px;padding:8px 10px;resize:vertical;line-height:1.45}
+.search{position:relative;flex:1 1 300px;min-width:0}
+.search input{width:100%;padding-left:36px}
+.search svg{position:absolute;left:11px;top:10px;width:16px;height:16px;color:var(--muted)}
+
+/* page */
+main .wrap{padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+.phead{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.phead > div{margin-right:auto;min-width:0}
+.phead h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.2px}
+.phead p{margin:2px 0 0;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:2px;text-align:left;cursor:pointer}
+.stat:hover{border-color:var(--line-strong)}
+.stat[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.stat span{font-size:12.5px;color:var(--muted);font-weight:500}
+.stat b{font-size:26px;line-height:1.15}
+.stat small{font-size:12px;color:var(--muted)}
+.stat.g b{color:var(--st-active)} .stat.o b{color:var(--stay)} .stat.m b{color:var(--st-maint)}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.banner{border-radius:10px;padding:11px 14px;font-size:13.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.err{background:var(--bad-soft);color:var(--bad)}
+.banner.info{background:var(--warn-soft);color:var(--warn)}
+.banner .btn{margin-left:auto}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-active{background:var(--st-active-bg);color:var(--st-active)}
+.st-inactive{background:var(--st-inactive-bg);color:var(--st-inactive)}
+.st-maintenance{background:var(--st-maint-bg);color:var(--st-maint)}
+.pb{display:inline-flex;align-items:center;height:21px;padding:0 7px;border-radius:6px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pb.airbnb{background:var(--p-airbnb-bg);color:var(--p-airbnb)} .pb.booking{background:var(--p-booking-bg);color:var(--p-booking)}
+.pb.agoda{background:var(--p-agoda-bg);color:var(--p-agoda)} .pb.trip{background:var(--p-trip-bg);color:var(--p-trip)}
+.pb.direct{background:var(--p-direct-bg);color:var(--p-direct)} .pb.other{background:var(--p-other-bg);color:var(--p-other)}
+.pbs{display:flex;gap:4px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.in{background:var(--in-soft);color:var(--in)} .pill.out{background:var(--out-soft);color:var(--out)} .pill.stay{background:var(--stay-soft);color:var(--stay)}
+.pill.ok{background:var(--in-soft);color:var(--in)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.neutral{background:var(--surface-2);color:var(--muted)}
+mark{background:var(--warn-soft);color:inherit;border-radius:3px;padding:0 1px}
+
+/* table */
+.tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tscroll{overflow-x:auto}
+table.vt{width:100%;border-collapse:collapse;min-width:1040px}
+.vt th{font-size:12px;font-weight:600;color:var(--muted);text-align:left;padding:10px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.2px}
+.vt th button{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+.vt th button:hover{color:var(--fg)}
+.vt th[aria-sort="ascending"] button,.vt th[aria-sort="descending"] button{color:var(--fg)}
+.vt td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13.5px}
+.vt tr:last-child td{border-bottom:0}
+.vt tbody tr:hover td{background:color-mix(in srgb,var(--surface-2) 55%,transparent)}
+.vt .vn{font-weight:600;cursor:pointer;color:var(--fg);text-decoration:none;display:block;max-width:300px;overflow-wrap:anywhere}
+.vt .vn:hover{color:var(--accent)}
+.vt .sub{font-size:12px;color:var(--muted);max-width:300px;overflow-wrap:anywhere;display:block}
+.vt .acts{display:flex;gap:2px;justify-content:flex-end}
+.vt td.c{text-align:center}
+.tfoot{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.tfoot .pg{margin-left:auto;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.tfoot .pg button[aria-current="page"]{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.empty{background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--r);padding:30px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:12px;align-items:center}
+
+/* detail */
+.dhead{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.dhead .row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.dhead h1{margin:0;font-size:22px;line-height:1.3;overflow-wrap:anywhere}
+.dhead .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+.dhead .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;margin:0 -2px}
+.tabs button{border:0;background:none;padding:10px 12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
+.cols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h3{margin:0;font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel h3 .r{margin-left:auto}
+.kv{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr);gap:8px 14px;margin:0;font-size:13.5px}
+.kv dt{color:var(--muted);font-size:12.5px;font-weight:500;padding-top:1px}
+.kv dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.kv dd.na{color:var(--muted)}
+@media (max-width:480px){.kv{grid-template-columns:minmax(0,1fr)}.kv dt{padding-top:6px}}
+.contact{display:flex;flex-direction:column;gap:10px}
+.contact .who{display:flex;gap:10px;align-items:center}
+.av{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
+.contact .who b{display:block}
+.contact .who span{font-size:12.5px;color:var(--muted)}
+.qa{display:flex;gap:6px;flex-wrap:wrap}
+.ltable{width:100%;border-collapse:collapse;min-width:640px}
+.ltable th{font-size:12px;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600}
+.ltable td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top;overflow-wrap:anywhere}
+.ltable tr:last-child td{border-bottom:0}
+.secret{background:var(--surface-2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.mask{letter-spacing:2px;color:var(--muted)}
+.mini{display:flex;flex-direction:column;gap:6px}
+.mini .it{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:13px;flex-wrap:wrap}
+.mini .it .d{min-width:132px}
+
+/* booking list */
+.bl{display:flex;flex-direction:column;gap:8px}
+.bday{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.3px;margin-top:6px}
+.bk{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 16px;align-items:start;font-size:13px}
+.bk .dates{display:flex;flex-direction:column;gap:2px;font-size:12.5px;white-space:nowrap}
+.bk .side{height:auto;position:static}
+.bk .pill{height:20px;font-size:11.5px}
+.bk .who a{font-size:14px}
+.bk .amt{font-size:14px}
+.bk .acts2{padding-top:6px;margin-top:2px}
+.bk .acts2 .btn.sm{height:28px}
+.bk .who{gap:2px}
+.bk .acts2{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:8px;margin-top:4px;border-top:1px dashed var(--line)}
+.bk .acts2 .sp{margin-left:auto}
+.btn.ci{border-color:var(--in);color:var(--in)} .btn.ci:hover{background:var(--in-soft)}
+.btn.co{border-color:var(--out);color:var(--out)} .btn.co:hover{background:var(--out-soft)}
+.done{font-size:12px;font-weight:600}
+.done.in{color:var(--in)} .done.out{color:var(--out)}
+textarea.msg{width:100%;min-height:190px;font-family:var(--f-body);font-size:13.5px}
+.warnbox{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:9px 12px;font-size:13px}
+.bk .dates div{display:flex;gap:8px;align-items:center}
+.bk .dates .pill{width:44px;justify-content:center;border-radius:6px;padding:0;flex:none}
+.bk .booked{font-size:12px;color:var(--muted)}
+.dfilter{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.dfilter label{font-size:12.5px;color:var(--muted);font-weight:500}
+.dfilter .inp,.dfilter .sel{height:32px}
+.dres{font-size:13px;color:var(--muted);background:var(--accent-soft);border-radius:8px;padding:7px 12px;align-self:flex-start}
+.dres b{color:var(--fg)}
+.bk.flash{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.bk .who{min-width:0;display:flex;flex-direction:column;gap:3px}
+.bk .who a{font-weight:600;overflow-wrap:anywhere;color:var(--fg);text-decoration:none}
+.bk .who a:hover{color:var(--accent);text-decoration:underline}
+.bk .meta{font-size:12.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.bk .side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.bk .amt{font-weight:600}
+.unl{color:var(--warn);font-weight:600}
+@media (max-width:680px){.bk{grid-template-columns:minmax(0,1fr)}.bk .side{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}}
+
+/* calendar */
+.calhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.calhead h2{margin:0 auto 0 0;font-size:17px;font-weight:600}
+.calscroll{overflow-x:auto}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;min-width:600px}
+.cal .dow{font-size:12px;color:var(--muted);text-align:center;padding:4px 0;font-weight:600}
+.cell{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-height:96px;padding:6px;display:flex;flex-direction:column;gap:3px;text-align:left;min-width:0;cursor:pointer}
+.cell:hover{border-color:var(--line-strong)}
+.cell.other{opacity:.45}
+.cell.today{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cell.sel{background:var(--accent-soft)}
+.cell .d{font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.cell .occ{font-size:11px;color:var(--stay);background:var(--stay-soft);border-radius:999px;padding:0 6px}
+.ev{font-size:11.5px;line-height:1.35;border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;border:0;text-align:left;cursor:pointer;width:100%}
+.ev.in{background:var(--in-soft);color:var(--in)} .ev.out{background:var(--out-soft);color:var(--out)}
+.ev:hover{text-decoration:underline}
+.ev.more{color:var(--muted);background:none;cursor:default}
+.calgrid{display:flex;flex-direction:column;gap:4px;min-width:640px}
+.dows{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.dow{font-size:12px;color:var(--muted);text-align:center;padding:4px 0;font-weight:600}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));column-gap:4px;row-gap:3px;min-height:100px}
+.wk .cell{min-height:0;padding:6px}
+.bar{position:relative;z-index:1;align-self:center;height:22px;line-height:22px;padding:0 7px;font-size:11.5px;font-weight:600;background:var(--stay-soft);color:var(--stay);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none;min-width:0;cursor:pointer}
+.bar.s{margin-left:5px;border-left:3px solid var(--in);border-top-left-radius:6px;border-bottom-left-radius:6px}
+.bar.e{margin-right:5px;border-right:3px solid var(--out);border-top-right-radius:6px;border-bottom-right-radius:6px}
+.bar.x{opacity:.55;text-decoration:line-through}
+.bar.unl{background:var(--warn-soft);color:var(--warn)}
+a.bar:hover{filter:brightness(.96);text-decoration:underline}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(10,20,18,.45);z-index:40}
+.modal{position:fixed;z-index:41;top:max(24px,env(safe-area-inset-top,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:min(860px,calc(100% - 24px));background:var(--surface);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.modal.small{bottom:auto;width:min(460px,calc(100% - 24px))}
+.modal header{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.modal header h2{margin:0;font-size:17px;flex:1;min-width:0}
+.modal .mb{overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:20px}
+.modal footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;background:var(--surface)}
+.modal footer .l{margin-right:auto}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;min-width:0}
+legend{font-weight:600;font-size:14.5px;padding:0;margin-bottom:4px}
+.fg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.fg .w2{grid-column:span 2}.fg .w3{grid-column:1/-1}
+@media (max-width:640px){.fg{grid-template-columns:minmax(0,1fr)}.fg .w2,.fg .w3{grid-column:auto}}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f label{font-size:12.5px;font-weight:500;color:var(--muted)}
+.f label .req{color:var(--bad)}
+.f .inp{width:100%}
+.f .err{font-size:12px;color:var(--bad)}
+.f.invalid .inp{border-color:var(--bad)}
+.lrow{display:grid;grid-template-columns:140px minmax(0,1.5fr) minmax(0,.8fr) minmax(0,1.2fr) 120px 32px;gap:6px;align-items:start;padding:8px;border:1px solid var(--line);border-radius:10px}
+.lrow .w{grid-column:2/-2}
+@media (max-width:760px){.lrow{grid-template-columns:minmax(0,1fr) 32px}.lrow > *{grid-column:1}.lrow .x{grid-column:2;grid-row:1}.lrow .w{grid-column:1}}
+.note-lock{font-size:12.5px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13.5px;z-index:60;max-width:calc(100% - 32px)}
+.pick{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto}
+.pick button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;text-align:left;cursor:pointer}
+.pick button:hover{border-color:var(--accent)}
+
+/* villa cards (phones) */
+.vcards{display:none;flex-direction:column;gap:8px;padding:8px}
+.vcard{display:flex;flex-direction:column;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-decoration:none;color:var(--fg)}
+.vcard:active{background:var(--surface-2)}
+.vcard .top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vcard .top .go{margin-left:auto;color:var(--muted)}
+.vcard b{font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.vcard .sub{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.ftoggle{display:none}
+.ftoggle .cnt{background:var(--accent);color:var(--accent-fg);border-radius:999px;font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;padding:0 5px}
+
+@media (max-width:720px){
+  .tcard table.vt{display:none}
+  .vcards{display:flex}
+  .tfoot{justify-content:center}
+  .tfoot .pg{margin-left:0}
+}
+@media (max-width:640px){
+  body{font-size:14px}
+  .phead h1{font-size:20px}
+  .phead p{font-size:13px}
+  .phead .btn{flex:1 1 auto}
+  .stats{gap:8px}
+  .stat{padding:10px 12px}
+  .stat b{font-size:22px}
+  /* filters collapse behind one button */
+  .toolbar{gap:8px}
+  .toolbar .search{flex:1 1 0}
+  .ftoggle{display:inline-flex;height:42px}
+  .toolbar > :not(.search):not(.ftoggle){display:none}
+  .toolbar.open > select,.toolbar.open > .btn{display:inline-flex;flex:1 1 calc(50% - 8px)}
+  .toolbar.open > select{display:block}
+  .toolbar.open > .dfilter{display:grid;grid-template-columns:auto minmax(0,1fr);flex:1 1 100%;gap:8px;align-items:center}
+  .dfilter #bDateBy,.dfilter .btn{grid-column:1/-1;width:100%}
+  /* touch-sized controls; 16px text stops iOS zooming into fields */
+  .inp,.sel{height:42px;font-size:16px}
+  textarea.inp{font-size:16px}
+  .btn{height:40px}
+  .btn.sm{height:36px;font-size:13px}
+  .btn.icon.sm{width:36px}
+  /* booking blocks */
+  .bk{padding:10px 12px;gap:6px}
+  .bk .dates{flex-direction:row;flex-wrap:wrap;gap:4px 12px}
+  .bk .acts2 .btn.sm{height:38px;flex:1 1 auto}
+  .bk .acts2 .sp{display:none}
+  /* forms open full screen, confirms as a bottom sheet */
+  .modal{top:0;bottom:0;left:0;right:0;transform:none;width:100%;border-radius:0;padding-top:env(safe-area-inset-top,0px)}
+  .modal.small{top:auto;bottom:0;border-radius:16px 16px 0 0;width:100%;max-height:90%}
+  .modal footer{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .modal footer .btn{flex:1 1 auto}
+  .modal footer .l{margin-right:0}
+  .lrow{padding:10px}
+  /* detail */
+  .dhead{padding:14px}
+  .dhead h1{font-size:19px}
+  .dhead .qa{width:100%}
+  .dhead .qa .btn{flex:1 1 auto}
+  .panel{padding:14px}
+  .tabs button{padding:10px}
+  .mini .it .d{min-width:0}
+  /* calendar fits the screen: narrow day columns, thin bars */
+  .calscroll{overflow-x:visible}
+  .calgrid{min-width:0;gap:3px}
+  .dows{gap:2px}
+  .dow{font-size:11px}
+  .wk{column-gap:2px;min-height:60px}
+  .wk .cell{padding:3px 4px;border-radius:6px}
+  .cell .d{font-size:12px}
+  .cell .occ{display:none}
+  .bar{height:18px;line-height:18px;font-size:10px;padding:0 3px}
+  .bar.s{margin-left:2px;border-left-width:2px}
+  .bar.e{margin-right:2px;border-right-width:2px}
+  .calhead h2{font-size:16px}
+}
+</style>
+
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><i aria-hidden="true">VB</i>Villa Board</div>
+  <nav class="nav" aria-label="Modules">
+    <a href="#villas" data-nav="villas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Villa Management</a>
+    <a href="#bookings" data-nav="bookings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>Booking</a>
+    <a href="#calendar" data-nav="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</a>
+  </nav>
+  <div class="sidefoot">
+    <span class="sync" id="sync"></span>
+    <button class="btn" id="refresh" type="button" title="Reload bookings and villas from the Google Sheet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+      Refresh
+    </button>
+  </div>
+</aside>
+
+<main><div class="wrap">
+  <div id="banner"></div>
+  <div id="page"></div>
+</div></main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div id="modalRoot"></div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(() => {
+"use strict";
+/* ============================================================
+   DATA MODEL (shared store; maps 1:1 to Supabase tables later)
+   villas/{villa_id}            -> table villas (PK villa_id)
+     villa_id, villa_name, internal_name, room_number, rooms, bedrooms, bathrooms,
+     max_guests, address, maps_url, status ('active'|'inactive'|'maintenance'), notes,
+     listings[]: {platform, property_name, listing_id, listing_url, status, notes}  -> table villa_listings (FK villa_id)
+     owner:{name, phone, email, line_display, line_group, line_link, notes}       -> table villa_contacts (role='owner')
+     housekeeper:{name, phone, line_display, line_group, line_link, team, notes}  -> table villa_contacts (role='housekeeper')
+     ops:{checkin_time, checkout_time, cleaning_schedule, parking, guest_instructions, maintenance_notes}
+     source:{sheet_row, key}, created_at, updated_at
+   secure/{villa_id}            -> table villa_secure (RLS: admins only)
+     access_instructions, key_notes, wifi, admin_notes
+   booking_links/{booking_key}  -> bookings.villa_id (FK) for bookings whose sheet name is ambiguous
+     villa_id, booking_id, platform, sheet_villa_name, linked_at
+   Bookings are read from the Google Sheet "Reservation" tab and resolved to a villa_id;
+   every relationship after that uses villa_id, never the name.
+   ============================================================ */
+const SHEET_ID = "14wKzPRBXoMwkn53cp3csjuzt3RyRTrD6EMp1zHybqIA";
+const TABS = {
+  villas: { gid: "289127522",  range: "'OTA Villa Matching'!A1:H" },
+  res:    { gid: "1808433811", range: "Reservation!A1:K" }
+};
+const PLATS = [
+  { key:"airbnb", label:"Airbnb" }, { key:"booking", label:"Booking.com" }, { key:"agoda", label:"Agoda" },
+  { key:"trip", label:"Trip.com" }, { key:"direct", label:"Direct" }, { key:"other", label:"Other" }
+];
+const PLAT_LABEL = Object.fromEntries(PLATS.map(p => [p.key, p.label]));
+const STATUSES = [{ key:"active", label:"Active" }, { key:"inactive", label:"Inactive" }, { key:"maintenance", label:"Maintenance" }];
+const ST_LABEL = Object.fromEntries(STATUSES.map(s => [s.key, s.label]));
+const LINE_HOME = "https://line.me/R/";
+const DAY = 86400000;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const norm = s => String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const ls = {
+  get(k){ try { return JSON.parse(localStorage.getItem("vb2:" + k)); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem("vb2:" + k, JSON.stringify(v)); } catch {} }
+};
+
+/* ---------- sheet → villa mapping (also used by the seed script) ---------- */
+/*MAP-START*/
+function platKey(p){
+  const n = String(p ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (n.startsWith("airbnb")) return "airbnb";
+  if (n.startsWith("booking")) return "booking";
+  if (n.startsWith("agoda")) return "agoda";
+  if (n.startsWith("trip")) return "trip";
+  if (n.startsWith("direct")) return "direct";
+  return n ? "other" : "";
+}
+function blankVilla(){
+  return {
+    villa_id:"", villa_name:"", internal_name:"", room_number:"", rooms:null, bedrooms:null, bathrooms:null,
+    max_guests:null, address:"", maps_url:"", status:"active", notes:"", listings:[],
+    owner:{ name:"", phone:"", email:"", line_display:"", line_group:"", line_link:"", notes:"" },
+    housekeeper:{ name:"", phone:"", line_display:"", line_group:"", line_link:"", team:"", notes:"" },
+    ops:{ checkin_time:"", checkout_time:"", cleaning_schedule:"", parking:"", guest_instructions:"", maintenance_notes:"" },
+    source:{ sheet_row:null, key:"" }, created_at:"", updated_at:""
+  };
+}
+function mapSheetRows(rows){
+  const nz = s => String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const out = [], seen = new Set();
+  (rows || []).slice(1).forEach((r, i) => {
+    const c = k => String((r && r[k]) ?? "").trim();
+    const names = { airbnb:c(1), booking:c(2), trip:c(3), agoda:c(4) };
+    const group = c(0), note = c(5), line = c(6), short = c(7);
+    if (!names.airbnb && !names.booking && !names.trip && !names.agoda && !short) return;
+    const key = [names.airbnb, names.booking, names.trip, names.agoda, short].map(nz).join("|");
+    if (seen.has(key)) return; seen.add(key);
+    const first = short || names.airbnb || names.agoda || names.booking || names.trip;
+    const paren = ((names.airbnb || first).match(/\(([^()]+)\)\s*$/) || [])[1] || "";
+    const brack = (first.match(/\[([^\]]+)\]/) || [])[1] || "";
+    const all = Object.values(names).concat(short).join(" ");
+    const v = blankVilla();
+    v.villa_name = first.replace(/\s*\([^()]+\)\s*$/, "").trim() || first;
+    const parenName = !short && paren.length > 6 && /\D{3,}/.test(paren);
+    v.internal_name = short || (parenName ? paren.trim() : (paren && !nz(v.villa_name).includes(nz(paren)) ? first : v.villa_name));
+    let room = "";
+    if (paren && paren.length <= 6) room = paren.trim();
+    else if (paren) room = (paren.match(/(\d{2,}[A-Za-z]?)\s*$/) || [])[1] || "";
+    if (!room && brack) room = brack.trim();
+    if (!room) room = (first.match(/^(\d+[A-Za-z])\s/) || [])[1] || "";
+    v.room_number = room;
+    const br = all.match(/(\d+)\s*(?:BR\b|BR\d|bedrooms?|bed\b|ห้องนอน)/i);
+    const ba = all.match(/(\d+)\s*(?:BA\b|bathrooms?|ห้องน้ำ)/i);
+    const pg = all.match(/for\s*(\d+)\s*persons?/i);
+    v.bedrooms = br ? +br[1] : null; v.rooms = v.bedrooms; v.bathrooms = ba ? +ba[1] : null;
+    v.max_guests = pg ? +pg[1] : null;
+    v.notes = note;
+    v.owner.line_group = group; v.owner.line_link = line;
+    [["airbnb","Airbnb"],["booking","Booking.com"],["agoda","Agoda"],["trip","Trip.com"]].forEach(([k, label]) => {
+      if (names[k]) v.listings.push({ platform:label, property_name:names[k], listing_id:"", listing_url:"", status:"Listed", notes:"" });
+    });
+    v.source = { sheet_row: i + 2, key, keys: [key] };
+    // Same unit listed twice (e.g. two Airbnb listings for "Nana317"): merge into one villa.
+    const twin = parenName && out.find(o => nz(o.internal_name) === nz(v.internal_name));
+    if (twin) {
+      v.listings.forEach(l => { if (!twin.listings.some(x => x.platform === l.platform && nz(x.property_name) === nz(l.property_name))) twin.listings.push(l); });
+      twin.source.keys.push(key);
+      if (!twin.notes && v.notes) twin.notes = v.notes;
+      return;
+    }
+    out.push(v);
+  });
+  return out;
+}
+/*MAP-END*/
+
+/* ---------- state ---------- */
+const S = {
+  route: { name:"villas", id:null },
+  villas: [], vmap: new Map(), villasReady: false, dbState: "loading", // loading | ok | none
+  secure: {}, links: {}, stay: {}, res: [], resReady: false, sheetVillaRows: null,
+  loadedAt: null, source: "", loading: false,
+  can: { write: false, admin: false, known: false },
+  // villa list
+  vq: "", vStatus: "", vPlat: "", vRooms: "", vOwner: "", vHk: "", sort: ls.get("sort") || { k:"villa_id", d:1 }, page: 1, size: ls.get("size") || 20,
+  // detail
+  tab: "overview", reveal: false, histMode: "list", hCal: null, hSel: null,
+  // bookings
+  bq: "", bPlat: "", bStatus: "", rng: ls.get("rng") === "custom" ? "upcoming" : (ls.get("rng") || "upcoming"), bDateBy: "stay", bFrom: "", bTo: "", calMonth: startOfMonth(today()), selDay: null,
+  mounted: ""
+};
+let db = null, user = null, mcpP = null;
+
+/* ---------- dates ---------- */
+function today(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+function addDays(d,n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function sameDay(a,b){ return !!a && !!b && a.getTime() === b.getTime(); }
+function parseDate(v){
+  if (!v) return null;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) { let y = +m[3]; if (y > 2400) y -= 543; return new Date(y, +m[2]-1, +m[1]); }
+  const d = new Date(s); return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+const fmtD = d => d ? d.toLocaleDateString("en-GB", { day:"numeric", month:"short" }) : "—";
+const fmtDY = d => d ? d.toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric" }) : "—";
+const fmtMonth = d => d.toLocaleDateString("en-GB", { month:"long", year:"numeric" });
+const fmtTime = d => d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
+
+/* ---------- sheet loading ---------- */
+function parseCSV(text){
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n") { row.push(f); rows.push(row); row = []; f = ""; }
+    else if (c !== "\r") f += c;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+async function viaCSV(tab){
+  const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${tab.gid}&t=${Date.now()}`, { cache:"no-store" });
+  if (!r.ok) throw { code:"http", message:"HTTP " + r.status };
+  const t = await r.text();
+  if (/^\s*<!doctype html/i.test(t)) throw { code:"private", message:"" };
+  return parseCSV(t);
+}
+function getMcp(){
+  if (!mcpP) mcpP = (window.claude && typeof window.claude.use === "function") ? window.claude.use("mcp").catch(() => null) : Promise.resolve(null);
+  return mcpP;
+}
+async function viaMcp(mcp, tab, fresh){
+  const res = await mcp.callTool("Google Sheets", "get_values", { spreadsheetId: SHEET_ID, range: tab.range },
+    fresh ? { cache: { refresh: true, staleTime: 0, gcTime: 300000 } } : undefined);
+  const p = res && res.payload;
+  const vals = p && (p.values || (p.content && p.content.values));
+  if (Array.isArray(vals)) return vals;
+  if (p && p.range) return [];
+  throw { code:"shape", message:"Unexpected response from Google Sheets." };
+}
+async function readSheet(tab, fresh){
+  const mcp = await getMcp();
+  if (mcp) {
+    try { const v = await viaMcp(mcp, tab, fresh); S.source = "Google Sheets connector"; return v; }
+    catch (e) { try { const v = await viaCSV(tab); S.source = "public sheet link"; return v; } catch { throw e; } }
+  }
+  const v = await viaCSV(tab); S.source = "public sheet link"; return v;
+}
+async function loadSheet(fresh){
+  if (S.loading) { S.again = true; return; }
+  S.loading = true; setRefreshing(true); clearBanner("sheet");
+  try {
+    const [vRows, rRows] = await Promise.all([readSheet(TABS.villas, fresh), readSheet(TABS.res, fresh)]);
+    S.sheetVillaRows = vRows;
+    buildBookings(rRows);
+    // keep bookings just added on this page until the sheet returns them
+    mergePending();
+    S.resReady = true; S.loadedAt = new Date(); S.liveSheet = true;
+    if (S.dbState === "none") useSheetVillas();
+    resolveBookings();
+    saveSharedCopy(vRows, rRows);
+    if (fresh) toast("Bookings refreshed from Google Sheets");
+  } catch (e) {
+    if (applySharedCopy()) {
+      setBanner("sheet", "info", `You're seeing the team's shared copy of the bookings, saved ${fmtStamp(S.cache.meta.updated_at)}. To load live data and add bookings, connect Google Sheets in claude.ai Settings → Connectors.`);
+    } else if (S.dbState === "ok" && !S.cacheSeen) {
+      S.sheetErr = e; // the shared copy may still arrive; decide when it does
+      setBanner("sheet", "info", "Loading the team's shared copy of the bookings…");
+    } else sheetError(e);
+  } finally {
+    S.loading = false; setRefreshing(false); renderSync(); render();
+    if (S.again) { S.again = false; loadSheet(true); }
+  }
+}
+/* ---------- shared copy of the sheet (for viewers without the Google Sheets connector) ----------
+   sheet_cache/meta      {gen, res_parts, rows, updated_at}
+   sheet_cache/villas    {gen, data: JSON of the OTA Villa Matching rows}
+   sheet_cache/res-<n>   {gen, part, data: JSON of up to 250 Reservation rows}
+   A copy is used only when every part carries the meta's gen, so a half-written update is never shown. */
+const CACHE_PART = 250;
+function mergePending(){
+  S.pending = (S.pending || []).filter(p => !S.res.some(b => b.key === p.key));
+  if (S.pending.length) { S.res = S.res.concat(S.pending); S.res.sort((a,b) => (a.cin || 0) - (b.cin || 0)); }
+}
+function assembleCache(){
+  const c = S.cache, m = c && c.meta;
+  if (!m || !m.gen) return null;
+  const v = c.docs.villas;
+  if (!v || v.gen !== m.gen) return null;
+  let res = [];
+  for (let i = 0; i < (m.res_parts || 0); i++) {
+    const p = c.docs["res-" + i];
+    if (!p || p.gen !== m.gen) return null;
+    try { res = res.concat(JSON.parse(p.data)); } catch { return null; }
+  }
+  try { return { vRows: JSON.parse(v.data), rRows: res }; } catch { return null; }
+}
+function applySharedCopy(){
+  const got = assembleCache(); if (!got) return false;
+  S.sheetVillaRows = got.vRows;
+  buildBookings(got.rRows); mergePending();
+  S.resReady = true; S.loadedAt = new Date(S.cache.meta.updated_at); S.source = "shared copy";
+  if (S.dbState === "none") useSheetVillas();
+  resolveBookings();
+  return true;
+}
+let cacheWriting = false;
+async function saveSharedCopy(vRows, rRows){
+  S.lastRows = [vRows, rRows];
+  if (!db || !S.can.write || cacheWriting || !S.cacheSeen) return; // retried once the current copy has been read
+  const sig = JSON.stringify([vRows, rRows]);
+  const cur = assembleCache();
+  if (cur && JSON.stringify([cur.vRows, cur.rRows]) === sig) return; // unchanged
+  cacheWriting = true;
+  try {
+    const gen = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const parts = Math.max(1, Math.ceil(rRows.length / CACHE_PART));
+    const oldParts = (S.cache && S.cache.meta && S.cache.meta.res_parts) || 0;
+    await db.doc("sheet_cache/villas").set({ gen, data: JSON.stringify(vRows) });
+    for (let i = 0; i < parts; i++) await db.doc("sheet_cache/res-" + i).set({ gen, part: i, data: JSON.stringify(rRows.slice(i * CACHE_PART, (i + 1) * CACHE_PART)) });
+    await db.doc("sheet_cache/meta").set({ gen, res_parts: parts, rows: Math.max(0, rRows.length - 1), updated_at: new Date().toISOString() });
+    for (let i = parts; i < oldParts; i++) { try { await db.doc("sheet_cache/res-" + i).delete(); } catch {} }
+  } catch { /* viewers who can't write simply keep reading the existing copy */ }
+  finally { cacheWriting = false; }
+}
+function onCacheSnap(snap){
+  const docs = {}; snap.docs.forEach(d => docs[d.id] = d.data());
+  S.cache = { meta: docs.meta || null, docs };
+  const firstSeen = !S.cacheSeen && !snap.metadata.fromCache;
+  if (!snap.metadata.fromCache) S.cacheSeen = true;
+  if (S.liveSheet) { if (firstSeen && S.lastRows) saveSharedCopy(S.lastRows[0], S.lastRows[1]); return; } // live data wins in this view
+  if (applySharedCopy()) {
+    S.sheetErr = null;
+    setBanner("sheet", "info", `You're seeing the team's shared copy of the bookings, saved ${fmtStamp(S.cache.meta.updated_at)}. To load live data and add bookings, connect Google Sheets in claude.ai Settings → Connectors.`);
+    renderSync(); render();
+  } else if (S.cacheSeen && S.sheetErr && !S.loading) { const e = S.sheetErr; S.sheetErr = null; sheetError(e); render(); }
+}
+function sheetError(e){
+  const msgs = {
+    needs_reauth:"Google Sheets connection expired. Reconnect it in claude.ai Settings → Connectors, then press Refresh.",
+    server_not_connected:"Google Sheets isn't connected. Add it in claude.ai Settings → Connectors, then press Refresh.",
+    selection_required:"More than one Google Sheets connector is set up. Pick one in the prompt claude.ai shows, then press Refresh.",
+    approval_required:"This page needs your permission to read Google Sheets. Press Refresh and choose Allow.",
+    not_in_manifest:"Reading Google Sheets is turned off for this page. Turn it on in the artifact's Permissions menu.",
+    consent_required:"Reading Google Sheets wasn't allowed yet. Press Refresh to be asked again.",
+    blocked_by_policy:"Your organization blocks the Google Sheets connector here.",
+    server_unavailable:"Google Sheets didn't respond. Wait a moment and press Refresh.",
+    private:"The sheet isn't shared as 'Anyone with the link can view', so bookings can't be read."
+  };
+  const m = msgs[e && e.code] || ("Bookings couldn't be loaded" + (e && e.message ? ": " + e.message : "") + ". Check your connection and press Refresh.");
+  setBanner("sheet", "err", m + (S.resReady ? " Showing the last loaded bookings." : ""), "Try again", "retry");
+}
+
+/* ---------- bookings ---------- */
+function bookingKey(pk, bid, row){ return ((pk || "x") + "-" + (bid || "row" + row)).replace(/[^A-Za-z0-9_\-.~:@+]/g, "-").slice(0, 180); }
+function buildBookings(rRows){
+  const head = (rRows && rRows[0] || []).map(norm);
+  const col = (ns, fb) => { for (const n of ns) { const i = head.indexOf(norm(n)); if (i >= 0) return i; } return fb; };
+  const C = { plat:col(["Platform"],0), villa:col(["Villa"],1), bdate:col(["Booking Date"],2), cin:col(["Check-in"],3), cout:col(["Check-out"],4),
+    amt:col(["Amount"],5), guest:col(["Guest Name"],6), guests:col(["Guests"],7), bid:col(["Booking ID"],8), st:col(["Status"],9), note:col(["Note"],10) };
+  const res = [];
+  (rRows || []).slice(1).forEach((r, i) => {
+    const c = k => String(r[k] ?? "").trim();
+    if (!c(C.villa) && !c(C.guest)) return;
+    const cin = parseDate(c(C.cin)), cout = parseDate(c(C.cout)), pk = platKey(c(C.plat));
+    res.push({ key: bookingKey(pk, c(C.bid), i+2), row: i+2, platform: c(C.plat), pkey: pk, sheetVilla: c(C.villa),
+      bookedAt: parseDate(c(C.bdate)), cin, cout, nights: cin && cout ? Math.round((cout - cin) / DAY) : null,
+      amount: c(C.amt), guest: c(C.guest), guests: c(C.guests), bid: c(C.bid), status: c(C.st), note: c(C.note),
+      villaId: null, linkHow: "" });
+  });
+  res.sort((a,b) => (a.cin || 0) - (b.cin || 0));
+  S.res = res;
+}
+function resolveBookings(){
+  const byPlat = new Map(), byAny = new Map();
+  S.villas.forEach(v => {
+    (v.listings || []).forEach(l => {
+      const k = norm(l.property_name); if (!k) return;
+      const pk = platKey(l.platform);
+      if (!byPlat.has(pk + "|" + k)) byPlat.set(pk + "|" + k, v.villa_id);
+      if (!byAny.has(k)) byAny.set(k, v.villa_id);
+    });
+    [v.villa_name, v.internal_name].forEach(n => { const k = norm(n); if (k && !byAny.has(k)) byAny.set(k, v.villa_id); });
+  });
+  S.res.forEach(b => {
+    const link = S.links[b.key];
+    if (link && S.vmap.has(link.villa_id)) { b.villaId = link.villa_id; b.linkHow = "manual"; return; }
+    const k = norm(b.sheetVilla);
+    const id = byPlat.get(b.pkey + "|" + k) || byAny.get(k) || null;
+    b.villaId = id; b.linkHow = id ? "name" : "";
+  });
+}
+const isCancelled = b => /cancel|ยกเลิก/i.test(b.status || "");
+const villaRes = id => S.res.filter(b => b.villaId === id);
+function occupied(id){ const t = today(); return villaRes(id).some(b => !isCancelled(b) && b.cin && b.cout && b.cin <= t && t < b.cout); }
+function stateOf(b, d){
+  if (!b.cin) return "";
+  if (sameDay(b.cin, d)) return "in";
+  if (b.cout && sameDay(b.cout, d)) return "out";
+  if (b.cout && b.cin < d && d < b.cout) return "stay";
+  return "";
+}
+
+/* ---------- shared store ---------- */
+function setVillas(list){
+  list.sort((a,b) => String(a.villa_id).localeCompare(String(b.villa_id), "en", { numeric:true }));
+  S.villas = list; S.vmap = new Map(list.map(v => [v.villa_id, v]));
+  S.villasReady = true;
+  resolveBookings();
+}
+function useSheetVillas(){
+  if (!S.sheetVillaRows) return;
+  const list = mapSheetRows(S.sheetVillaRows).map((v, i) => ({ ...v, villa_id: "V" + String(i + 1).padStart(3, "0") }));
+  setVillas(list);
+}
+async function initStore(){
+  const use = window.claude && typeof window.claude.use === "function" ? window.claude.use.bind(window.claude) : null;
+  db = use ? await use("db").catch(() => null) : null;
+  user = use ? await use("user").catch(() => null) : null;
+  if (user) {
+    try {
+      const w = await user.can("data.write");
+      S.can.write = w !== false; S.can.admin = !!(await user.canEdit()); S.can.known = w !== null;
+    } catch { S.can.write = true; }
+  }
+  if (!db) {
+    S.dbState = "none"; S.can.write = false; S.can.admin = false;
+    setBanner("db", "info", "อ่านอย่างเดียว: ข้อมูลดึงจาก Google Sheet โดยตรง ถ้าต้องการเพิ่ม/แก้ไขการจองหรือวิลล่า ให้เปิดเวอร์ชันบน claude.ai");
+    useSheetVillas(); render(); return;
+  }
+  S.dbState = "ok";
+  let first = true;
+  const timer = setTimeout(() => { if (!S.villasReady) setBanner("db", "info", "The villa database is taking longer than usual to answer. Villas will appear as soon as it responds."); }, 10000);
+  db.collection("villas").onSnapshot(snap => {
+    if (!snap.metadata.fromCache) { clearTimeout(timer); clearBanner("db"); }
+    setVillas(snap.docs.map(d => ({ ...blankVilla(), ...d.data(), villa_id: d.id })));
+    if (first && !snap.metadata.fromCache) first = false;
+    render();
+  }, e => { clearTimeout(timer); dbError(e); });
+  db.collection("booking_links").onSnapshot(snap => {
+    const m = {}; snap.docs.forEach(d => m[d.id] = d.data()); S.links = m; resolveBookings(); render();
+  }, () => {});
+  db.collection("sheet_cache").onSnapshot(onCacheSnap, () => {});
+  db.collection("stay_status").onSnapshot(snap => {
+    const m = {}; snap.docs.forEach(d => m[d.id] = d.data()); S.stay = m;
+    if (!$("#modalRoot").innerHTML && S.route.name !== "villas") renderPage();
+  }, () => {});
+}
+function dbError(e){
+  const m = e && e.code === "revoked" ? "Access to the villa database ended for this page." : "The villa database stopped responding. Reload the page to reconnect.";
+  setBanner("db", "err", m);
+}
+async function loadSecure(id){
+  if (!db || !S.can.admin || S.secure[id] !== undefined) return;
+  S.secure[id] = null;
+  try { const d = await db.doc("secure/" + id).get(); S.secure[id] = d.exists ? d.data() : {}; }
+  catch { S.secure[id] = {}; }
+  if (S.route.name === "villa" && S.route.id === id) renderPage();
+}
+function writeErr(e){
+  const c = e && e.code;
+  if (c === "invalid_argument") { S.can.write = false; return "You don't have permission to change villa records on this page."; }
+  if (c === "quota_exceeded") return "The villa database is full. Delete unused villas and try again.";
+  if (c === "unavailable" || c === "resource_exhausted") return "The database is busy. Wait a moment and try again.";
+  return "Couldn't save: " + ((e && e.message) || "unknown error");
+}
+
+/* ---------- banners, toast ---------- */
+const banners = {};
+function setBanner(id, kind, text, btn, act){ banners[id] = { kind, text, btn, act }; drawBanners(); }
+function clearBanner(id){ delete banners[id]; drawBanners(); }
+function drawBanners(){
+  $("#banner").innerHTML = Object.values(banners).map(b => `<div class="banner ${b.kind}" role="${b.kind === "err" ? "alert" : "status"}"><span>${esc(b.text)}</span>${b.btn ? `<button class="btn sm" type="button" data-act="${b.act}">${esc(b.btn)}</button>` : ""}</div>`).join("");
+  $("#banner").style.display = Object.keys(banners).length ? "flex" : "none";
+  $("#banner").style.flexDirection = "column"; $("#banner").style.gap = "8px";
+}
+let toastT;
+function toast(m){ const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+function setRefreshing(on){ const b = $("#refresh"); b.classList.toggle("spin", on); b.disabled = on; }
+function renderSync(){
+  $("#sync").textContent = S.loadedAt ? `Bookings updated ${fmtTime(S.loadedAt)}` : (S.loading ? "Loading bookings…" : "");
+}
+async function copyText(txt, label){
+  try { await navigator.clipboard.writeText(txt); toast((label || "Copied") + ": " + txt); }
+  catch { toast("Copy isn't available here. " + (label || "Text") + ": " + txt); }
+}
+
+/* ---------- helpers for markup ---------- */
+function hl(text, q){
+  let s = esc(text);
+  const t = String(q || "").trim().split(/\s+/).filter(Boolean);
+  t.forEach(w => { const re = new RegExp("(" + esc(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi"); s = s.replace(re, "<mark>$1</mark>"); });
+  return s;
+}
+const stBadge = s => `<span class="badge st-${esc(s || "inactive")}">${esc(ST_LABEL[s] || s || "—")}</span>`;
+const platBadge = p => { const k = platKey(p) || "other"; return `<span class="pb ${k}">${esc(PLAT_LABEL[k] || p)}</span>`; };
+function villaPlats(v){ return [...new Set((v.listings || []).map(l => platKey(l.platform) || "other"))]; }
+const platBadges = v => { const ks = villaPlats(v); return ks.length ? `<div class="pbs">${ks.map(k => `<span class="pb ${k}">${esc(PLAT_LABEL[k])}</span>`).join("")}</div>` : `<span class="muted">—</span>`; };
+const vName = v => v ? (v.internal_name || v.villa_name || v.villa_id) : "";
+const initials = n => (String(n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?").toUpperCase();
+const lineIcon = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 3.9 3.5 7.2 8.3 7.9.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.5 1.1-.5 5.9-3.5 8.1-6C21.4 14.3 22 12.7 22 11c0-4.4-4.5-8-10-8Z"/></svg>`;
+const ICON = {
+  eye:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  edit:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg>`,
+  del:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`,
+  plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
+  phone:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>`,
+  copy:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>`,
+  back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>`,
+  search:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  lock:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`,
+  sync:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>`
+};
+// Phones: one "Filters" button opens the filter controls under the search box; the count shows how many are active.
+function ftoggleBtn(){
+  return `<button class="btn ftoggle" type="button" data-act="ftoggle" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters <span class="cnt" hidden></span></button>`;
+}
+function updateFilterCounts(){
+  document.querySelectorAll(".toolbar").forEach(tb => {
+    const c = tb.querySelector(".ftoggle .cnt"); if (!c) return;
+    let n = 0;
+    tb.querySelectorAll("select").forEach(s => { if (s.id === "vSort" || s.id === "bDateBy") return; if (s.id === "rng" ? s.value !== "upcoming" : s.value) n++; });
+    c.textContent = n; c.hidden = !n;
+  });
+}
+function lineBtn(link, group, cls = ""){
+  if (link) return `<a class="btn line ${cls}" href="${esc(link)}" target="_blank" rel="noopener">${lineIcon} Open LINE</a>`;
+  return `<a class="btn line ${cls}" href="${LINE_HOME}" target="_blank" rel="noopener" ${group ? `data-copy="${esc(group)}" data-copy-label="LINE group name copied"` : ""} title="No group link saved — opens LINE${group ? " and copies the group name" : ""}">${lineIcon} Open LINE</a>`;
+}
+
+/* ---------- routing ---------- */
+function parseRoute(){
+  const h = location.hash.replace(/^#/, "");
+  const m = h.match(/^villa-([A-Za-z0-9_-]+)$/);
+  if (m) return { name:"villa", id:m[1] };
+  if (h === "bookings" || h === "calendar") return { name:h, id:null };
+  return { name:"villas", id:null };
+}
+function go(hash){ if (location.hash === "#" + hash) onRoute(); else location.hash = hash; }
+function onRoute(){
+  const r = parseRoute();
+  if (r.name === "villa" && (S.route.name !== "villa" || S.route.id !== r.id)) { S.tab = "overview"; S.reveal = false; S.histMode = "list"; S.hCal = null; S.hSel = null; }
+  S.route = r; S.mounted = "";
+  closeModal();
+  render(); window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", onRoute);
+
+/* ---------- render ---------- */
+function render(){
+  document.querySelectorAll("[data-nav]").forEach(a => {
+    const on = a.dataset.nav === S.route.name || (S.route.name === "villa" && a.dataset.nav === "villas");
+    on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
+  });
+  renderPage();
+}
+function renderPage(){
+  const r = S.route;
+  if (r.name === "villas") renderVillaList();
+  else if (r.name === "villa") renderDetail(r.id);
+  else if (r.name === "bookings") renderBookings();
+  else renderCalendarPage();
+}
+
+/* ===== Villa Management list ===== */
+function villaHay(v){
+  if (v._hayFor === v.updated_at && v._hay) return v._hay;
+  const parts = [v.villa_id, v.villa_name, v.internal_name, v.room_number, v.owner && v.owner.name, v.owner && v.owner.line_group,
+    v.housekeeper && v.housekeeper.name, v.housekeeper && v.housekeeper.team, ...(v.listings || []).map(l => l.property_name + " " + l.listing_id)];
+  const h = norm(parts.join(" "));
+  try { Object.defineProperty(v, "_hay", { value:h, writable:true, configurable:true }); Object.defineProperty(v, "_hayFor", { value:v.updated_at, writable:true, configurable:true }); } catch {}
+  return h;
+}
+function filteredVillas(){
+  const terms = S.vq.trim().split(/\s+/).map(norm).filter(Boolean);
+  let list = S.villas.filter(v => {
+    if (S.vStatus === "occupied") { if (!occupied(v.villa_id)) return false; }
+    else if (S.vStatus && v.status !== S.vStatus) return false;
+    if (S.vPlat && !villaPlats(v).includes(S.vPlat)) return false;
+    if (S.vRooms) { const n = v.rooms || 0; if (S.vRooms === "none" ? n : S.vRooms === "4" ? n < 4 : n !== +S.vRooms) return false; }
+    if (S.vOwner && (v.owner && v.owner.name) !== S.vOwner) return false;
+    if (S.vHk && (v.housekeeper && v.housekeeper.name) !== S.vHk) return false;
+    if (terms.length) { const h = villaHay(v); if (!terms.every(t => h.includes(t))) return false; }
+    return true;
+  });
+  const { k, d } = S.sort;
+  const val = v => k === "villa_name" ? vName(v).toLowerCase() : String(v[k] ?? "");
+  list.sort((a,b) => {
+    const A = val(a), B = val(b);
+    if (!A && B) return 1; if (A && !B) return -1;
+    return A.localeCompare(B, "en", { numeric:true }) * d;
+  });
+  return list;
+}
+function renderVillaList(){
+  const el = $("#page");
+  if (S.mounted !== "villas") {
+    S.mounted = "villas";
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="phead">
+          <div><h1>Villa Management</h1><p>Manage properties, contacts, platform listings, and operational information.</p></div>
+          <button class="btn" type="button" data-act="sync" id="syncBtn" title="Add villas that are in the Google Sheet but not in this database yet">${ICON.sync} Sync from sheet</button>
+          <button class="btn primary" type="button" data-act="add" id="addBtn">${ICON.plus} Add New Villa</button>
+        </div>
+        <div class="stats" id="vstats"></div>
+        <div class="toolbar">
+          <label class="search"><span hidden>Search villas</span>${ICON.search}<input class="inp" id="vq" type="search" placeholder="Search name, Villa ID, room, platform name, owner, housekeeper…" autocomplete="off" aria-label="Search villas"></label>
+          ${ftoggleBtn()}
+          <select class="sel" id="vSort" aria-label="Sort villas"><option value="villa_id:1">Sort: Villa ID</option><option value="villa_name:1">Sort: Name A–Z</option><option value="villa_name:-1">Sort: Name Z–A</option><option value="room_number:1">Sort: Room number</option></select>
+          <select class="sel" id="vStatus" aria-label="Villa status"><option value="">All statuses</option>${STATUSES.map(s => `<option value="${s.key}">${s.label}</option>`).join("")}<option value="occupied">Occupied today</option></select>
+          <select class="sel" id="vPlat" aria-label="Booking platform"><option value="">All platforms</option>${PLATS.map(p => `<option value="${p.key}">${p.label}</option>`).join("")}</select>
+          <select class="sel" id="vRooms" aria-label="Number of rooms"><option value="">Any rooms</option><option value="1">1 room</option><option value="2">2 rooms</option><option value="3">3 rooms</option><option value="4">4+ rooms</option><option value="none">Not set</option></select>
+          <select class="sel" id="vOwner" aria-label="Owner"></select>
+          <select class="sel" id="vHk" aria-label="Housekeeper"></select>
+          <button class="btn ghost sm" type="button" data-act="vreset">Clear filters</button>
+        </div>
+        <div id="vtable"></div>
+      </div>`;
+    $("#vq").value = S.vq;
+    ["vStatus","vPlat","vRooms"].forEach(id => $("#" + id).value = S[id]);
+    let t; $("#vq").addEventListener("input", e => { clearTimeout(t); t = setTimeout(() => { S.vq = e.target.value; S.page = 1; drawVillaTable(); }, 120); });
+    ["vStatus","vPlat","vRooms","vOwner","vHk"].forEach(id => $("#" + id).addEventListener("change", e => { S[id] = e.target.value; S.page = 1; drawVillaTable(); }));
+    $("#vSort").addEventListener("change", e => { const [k, d] = e.target.value.split(":"); S.sort = { k, d:+d }; ls.set("sort", S.sort); drawVillaTable(); });
+  }
+  const sv = `${S.sort.k}:${S.sort.d}`; if ([...$("#vSort").options].some(o => o.value === sv)) $("#vSort").value = sv;
+  const owners = [...new Set(S.villas.map(v => v.owner && v.owner.name).filter(Boolean))].sort();
+  const hks = [...new Set(S.villas.map(v => v.housekeeper && v.housekeeper.name).filter(Boolean))].sort();
+  $("#vOwner").innerHTML = `<option value="">All owners</option>` + owners.map(o => `<option>${esc(o)}</option>`).join("");
+  $("#vHk").innerHTML = `<option value="">All housekeepers</option>` + hks.map(o => `<option>${esc(o)}</option>`).join("");
+  if (!owners.includes(S.vOwner)) S.vOwner = ""; if (!hks.includes(S.vHk)) S.vHk = "";
+  $("#vOwner").value = S.vOwner; $("#vHk").value = S.vHk;
+  $("#addBtn").hidden = !S.can.write; $("#syncBtn").hidden = !S.can.write;
+  drawVillaTable();
+}
+function drawVillaTable(){
+  const all = S.villas, t = $("#vtable"); if (!t) return;
+  const nAct = all.filter(v => v.status === "active").length, nMt = all.filter(v => v.status === "maintenance").length;
+  const nOcc = all.filter(v => occupied(v.villa_id)).length;
+  const stat = (cls, key, label, n, sub) => `<button class="stat ${cls}" type="button" data-vstat="${key}" aria-pressed="${S.vStatus === key}"><span>${label}</span><b class="num">${S.villasReady ? n : "–"}</b><small>${sub}</small></button>`;
+  $("#vstats").innerHTML =
+    stat("", "", "Total Villas", all.length, "in the database") +
+    stat("g", "active", "Active Villas", nAct, "taking bookings") +
+    stat("o", "occupied", "Occupied Villas", nOcc, S.resReady ? "guests staying today" : "waiting for bookings") +
+    stat("m", "maintenance", "Maintenance Villas", nMt, "unavailable for repair");
+  if (!S.villasReady) { t.innerHTML = `<div class="empty">Loading villas…</div>`; return; }
+  if (!all.length) {
+    t.innerHTML = `<div class="empty"><b>No villas yet</b><span>Import every villa listed in the Google Sheet's “OTA Villa Matching” tab, or add one by hand.</span>${S.can.write ? `<div class="qa"><button class="btn primary" type="button" data-act="sync">${ICON.sync} Import villas from sheet</button><button class="btn" type="button" data-act="add">${ICON.plus} Add New Villa</button></div>` : ""}</div>`;
+    return;
+  }
+  const list = filteredVillas();
+  const pages = Math.max(1, Math.ceil(list.length / S.size));
+  if (S.page > pages) S.page = pages;
+  const rows = list.slice((S.page - 1) * S.size, S.page * S.size);
+  const th = (k, label) => `<th aria-sort="${S.sort.k === k ? (S.sort.d > 0 ? "ascending" : "descending") : "none"}"><button type="button" data-sort="${k}">${label} <span aria-hidden="true">${S.sort.k === k ? (S.sort.d > 0 ? "↑" : "↓") : "↕"}</span></button></th>`;
+  if (!list.length) { t.innerHTML = `<div class="empty">No villas match your search and filters.<button class="btn sm" type="button" data-act="vreset">Clear filters</button></div>`; return; }
+  const q = S.vq;
+  t.innerHTML = `<div class="tcard"><div class="tscroll"><table class="vt">
+    <thead><tr>${th("villa_id","Villa ID")}${th("villa_name","Villa Name")}${th("room_number","Room No.")}<th>Rooms</th><th>Max Guests</th><th>Booking Platforms</th><th>Owner</th><th>Housekeeper</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+    <tbody>${rows.map(v => {
+      const sub = v.villa_name && v.villa_name !== vName(v) ? v.villa_name : "";
+      const occ = occupied(v.villa_id);
+      return `<tr>
+        <td class="mono">${hl(v.villa_id, q)}</td>
+        <td><a class="vn" href="#villa-${esc(v.villa_id)}">${hl(vName(v), q)}</a>${sub ? `<span class="sub">${hl(sub, q)}</span>` : ""}</td>
+        <td class="num">${v.room_number ? hl(v.room_number, q) : '<span class="muted">—</span>'}</td>
+        <td class="num c">${v.rooms ?? '<span class="muted">—</span>'}</td>
+        <td class="num c">${v.max_guests ?? '<span class="muted">—</span>'}</td>
+        <td>${platBadges(v)}</td>
+        <td>${v.owner && v.owner.name ? hl(v.owner.name, q) : `<span class="muted">${v.owner && v.owner.line_group ? hl(v.owner.line_group, q) : "—"}</span>`}</td>
+        <td>${v.housekeeper && v.housekeeper.name ? hl(v.housekeeper.name, q) : '<span class="muted">—</span>'}</td>
+        <td><div class="pbs">${stBadge(v.status)}${occ ? '<span class="pill stay">Occupied</span>' : ""}</div></td>
+        <td><div class="acts">
+          <a class="btn ghost icon sm" href="#villa-${esc(v.villa_id)}" title="View details" aria-label="View details of ${esc(vName(v))}">${ICON.eye}</a>
+          ${S.can.write ? `<button class="btn ghost icon sm" type="button" data-edit="${esc(v.villa_id)}" title="Edit villa" aria-label="Edit ${esc(vName(v))}">${ICON.edit}</button>
+          <button class="btn ghost icon sm" type="button" data-del="${esc(v.villa_id)}" title="Delete villa" aria-label="Delete ${esc(vName(v))}">${ICON.del}</button>` : ""}
+        </div></td></tr>`;
+    }).join("")}</tbody></table>
+    <div class="vcards">${rows.map(v => {
+      const sub = v.villa_name && v.villa_name !== vName(v) ? v.villa_name : "";
+      const facts = [v.room_number ? "Room " + v.room_number : "", v.rooms != null ? v.rooms + " rooms" : "", v.max_guests != null ? v.max_guests + " guests" : ""].filter(Boolean).join(" · ");
+      const people = [v.owner && v.owner.name ? "Owner: " + v.owner.name : (v.owner && v.owner.line_group ? "LINE: " + v.owner.line_group : ""), v.housekeeper && v.housekeeper.name ? "Housekeeper: " + v.housekeeper.name : ""].filter(Boolean).join(" · ");
+      return `<a class="vcard" href="#villa-${esc(v.villa_id)}">
+        <span class="top"><span class="mono muted">${hl(v.villa_id, q)}</span>${stBadge(v.status)}${occupied(v.villa_id) ? '<span class="pill stay">Occupied</span>' : ""}<span class="go" aria-hidden="true">›</span></span>
+        <b>${hl(vName(v), q)}</b>
+        ${sub ? `<span class="sub">${hl(sub, q)}</span>` : ""}
+        ${facts ? `<span class="sub num">${hl(facts, q)}</span>` : ""}
+        ${platBadges(v)}
+        ${people ? `<span class="sub">${hl(people, q)}</span>` : ""}
+      </a>`;
+    }).join("")}</div></div>
+    <div class="tfoot">
+      <span class="num">Showing ${(S.page - 1) * S.size + 1}–${Math.min(S.page * S.size, list.length)} of ${list.length}${list.length !== all.length ? ` (filtered from ${all.length})` : ""}</span>
+      <select class="sel" id="psize" aria-label="Rows per page">${[10,20,50,100].map(n => `<option value="${n}" ${n === S.size ? "selected" : ""}>${n} / page</option>`).join("")}</select>
+      <div class="pg">${pager(pages)}</div>
+    </div></div>`;
+  $("#psize").addEventListener("change", e => { S.size = +e.target.value; S.page = 1; ls.set("size", S.size); drawVillaTable(); });
+}
+function pager(pages){
+  if (pages <= 1) return "";
+  const p = S.page, set = new Set([1, pages, p - 1, p, p + 1].filter(n => n >= 1 && n <= pages));
+  const nums = [...set].sort((a,b) => a - b);
+  let out = `<button class="btn sm" type="button" data-page="${p - 1}" ${p === 1 ? "disabled" : ""} aria-label="Previous page">‹</button>`, last = 0;
+  nums.forEach(n => { if (n - last > 1) out += `<span class="muted">…</span>`; out += `<button class="btn sm" type="button" data-page="${n}" ${n === p ? 'aria-current="page"' : ""}>${n}</button>`; last = n; });
+  return out + `<button class="btn sm" type="button" data-page="${p + 1}" ${p === pages ? "disabled" : ""} aria-label="Next page">›</button>`;
+}
+
+/* ===== Villa detail ===== */
+function kv(rows){
+  return `<dl class="kv">${rows.map(([k, v, raw]) => `<dt>${esc(k)}</dt><dd class="${v === "" || v == null ? "na" : ""}">${v === "" || v == null ? "Not set" : (raw ? v : esc(v))}</dd>`).join("")}</dl>`;
+}
+function contactCard(title, c, role, full){
+  const has = c && (c.name || c.phone || c.line_group || c.line_link);
+  const phone = c && c.phone;
+  return `<section class="panel">
+    <h3>${esc(title)}</h3>
+    ${has ? `<div class="contact">
+      <div class="who"><span class="av" aria-hidden="true">${esc(initials(c.name || c.line_group))}</span><div><b>${esc(c.name || "Name not set")}</b><span>${esc(c.line_display ? "LINE: " + c.line_display : (role === "housekeeper" && c.team ? c.team : ""))}</span></div></div>
+      ${full ? kv(role === "owner"
+        ? [["Phone", c.phone], ["Email", c.email], ["LINE display name", c.line_display], ["LINE group", c.line_group], ["LINE group link", c.line_link ? `<a href="${esc(c.line_link)}" target="_blank" rel="noopener">${esc(c.line_link)}</a>` : "", true], ["Notes", c.notes]]
+        : [["Phone", c.phone], ["LINE display name", c.line_display], ["LINE group", c.line_group], ["LINE group link", c.line_link ? `<a href="${esc(c.line_link)}" target="_blank" rel="noopener">${esc(c.line_link)}</a>` : "", true], ["Cleaning team", c.team], ["Notes", c.notes]])
+      : kv([["Phone", c.phone], ["LINE group", c.line_group]])}
+      <div class="qa">
+        ${phone ? `<a class="btn sm" href="tel:${esc(phone.replace(/[^\d+]/g, ""))}">${ICON.phone} Call ${role === "owner" ? "Owner" : "Housekeeper"}</a>
+        <button class="btn sm" type="button" data-copy="${esc(phone)}" data-copy-label="Phone number copied">${ICON.copy} Copy Phone Number</button>`
+        : `<span class="btn sm" aria-disabled="true">${ICON.phone} No phone saved</span>`}
+        ${lineBtn(c.line_link, c.line_group, "sm")}
+      </div>
+    </div>` : `<p class="muted" style="margin:0">No ${role === "owner" ? "owner" : "housekeeper"} details yet.${S.can.write ? ` <button class="btn sm" type="button" data-edit="${esc(S.route.id)}">Add details</button>` : ""}</p>`}
+  </section>`;
+}
+function listingsTable(v){
+  const ls_ = v.listings || [];
+  if (!ls_.length) return `<p class="muted" style="margin:0">No platform listings yet.</p>`;
+  return `<div class="tscroll"><table class="ltable"><thead><tr><th>Platform</th><th>Property name on platform</th><th>Listing ID</th><th>Listing URL</th><th>Status</th><th>Notes</th></tr></thead><tbody>
+    ${ls_.map(l => `<tr><td>${platBadge(l.platform)}</td><td>${esc(l.property_name || "—")}</td><td class="mono">${esc(l.listing_id || "—")}</td>
+      <td>${l.listing_url ? `<a href="${esc(l.listing_url)}" target="_blank" rel="noopener">Open listing</a>` : '<span class="muted">—</span>'}</td>
+      <td>${esc(l.status || "—")}</td><td>${esc(l.notes || "")}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+function bookingMini(list, empty){
+  if (!list.length) return `<p class="muted" style="margin:0">${esc(empty)}</p>`;
+  return `<div class="mini">${list.map(b => `<div class="it">
+    <span class="d num">${esc(fmtD(b.cin))} → ${esc(fmtD(b.cout))}</span>
+    <span style="flex:1;min-width:120px"><b>${esc(b.guest || "Guest")}</b> <span class="muted">· ${esc(b.platform)}${b.nights != null ? " · " + b.nights + " nights" : ""}</span></span>
+    ${statusPill(b.status)}</div>`).join("")}</div>`;
+}
+function renderDetail(id){
+  const el = $("#page");
+  if (!S.villasReady) { el.innerHTML = `<div class="empty">Loading villa…</div>`; return; }
+  const v = S.vmap.get(id);
+  if (!v) { el.innerHTML = `<div class="empty"><b>Villa ${esc(id)} wasn't found</b><span>It may have been deleted.</span><a class="btn" href="#villas">${ICON.back} Back to Villa List</a></div>`; return; }
+  S.mounted = "villa-" + id;
+  loadSecure(id);
+  const t = today(), res = villaRes(id), live = res.filter(b => !isCancelled(b));
+  const now = live.find(b => b.cin && b.cout && b.cin <= t && t < b.cout);
+  const upcoming = live.filter(b => b.cin && b.cin >= t).sort((a,b) => a.cin - b.cin);
+  const recent = res.slice().sort((a,b) => (b.bookedAt || b.cin || 0) - (a.bookedAt || a.cin || 0)).slice(0, 5);
+  const TABS_ = [["overview","Overview"],["listings","Platform Listings"],["owner","Owner & Contacts"],["hk","Housekeeping"],["ops","Operational Notes"],["history","Booking History"]];
+  const occTxt = now ? `<span class="pill stay">Occupied</span><span>${esc(now.guest)} · checks out ${esc(fmtD(now.cout))}</span>` : `<span class="pill neutral">Vacant tonight</span>`;
+  let body = "";
+  const general = kv([["Villa ID", v.villa_id], ["Villa name", v.villa_name], ["Internal villa name", v.internal_name], ["Room number", v.room_number],
+    ["Number of rooms", v.rooms], ["Bedrooms", v.bedrooms], ["Bathrooms", v.bathrooms], ["Maximum guests", v.max_guests],
+    ["Address", v.address], ["Google Maps", v.maps_url ? `<a href="${esc(v.maps_url)}" target="_blank" rel="noopener">Open in Google Maps</a>` : "", true],
+    ["Status", stBadge(v.status), true], ["General notes", v.notes]]);
+  if (S.tab === "overview") {
+    body = `<div class="cols">
+      <div class="stack">
+        <section class="panel"><h3>Villa Information</h3>${general}</section>
+        <section class="panel"><h3>Platform Listings <span class="r">${platBadges(v)}</span></h3>${listingsTable(v)}</section>
+        <section class="panel"><h3>Recent Booking Activity</h3>${bookingMini(recent, S.resReady ? "No bookings recorded for this villa." : "Bookings are still loading.")}</section>
+      </div>
+      <div class="stack">
+        <section class="panel"><h3>Current Occupancy</h3><div class="pbs" style="align-items:center;gap:8px">${occTxt}</div></section>
+        <section class="panel"><h3>Upcoming Reservations <span class="r muted" style="font-weight:500;font-size:12.5px">${upcoming.length}</span></h3>${bookingMini(upcoming.slice(0, 6), "No upcoming reservations.")}</section>
+        ${contactCard("Owner", v.owner, "owner", false)}
+        ${contactCard("Housekeeper", v.housekeeper, "housekeeper", false)}
+      </div></div>`;
+  } else if (S.tab === "listings") {
+    body = `<section class="panel"><h3>Platform Listings ${S.can.write ? `<button class="btn sm r" type="button" data-edit="${esc(id)}" data-focus="listings">${ICON.edit} Edit listings</button>` : ""}</h3>
+      <p class="muted" style="margin:0;font-size:13px">The internal name <b>${esc(vName(v))}</b> is the reference used across Villa Board. Platform names can differ.</p>${listingsTable(v)}</section>`;
+  } else if (S.tab === "owner") {
+    body = `<div class="cols"><div class="stack">${contactCard("Owner Information", v.owner, "owner", true)}</div><div class="stack">${contactCard("Housekeeper", v.housekeeper, "housekeeper", false)}</div></div>`;
+  } else if (S.tab === "hk") {
+    body = `<div class="cols"><div class="stack">${contactCard("Housekeeper Information", v.housekeeper, "housekeeper", true)}</div>
+      <div class="stack"><section class="panel"><h3>Cleaning Schedule</h3>${kv([["Schedule", v.ops && v.ops.cleaning_schedule], ["Check-out time", v.ops && v.ops.checkout_time], ["Check-in time", v.ops && v.ops.checkin_time]])}</section>
+      <section class="panel"><h3>Next Turnovers</h3>${bookingMini(live.filter(b => b.cout && b.cout >= t).sort((a,b) => a.cout - b.cout).slice(0, 5), "No upcoming check-outs.")}</section></div></div>`;
+  } else if (S.tab === "ops") {
+    const o = v.ops || {};
+    let sec;
+    if (!S.can.admin) sec = `<div class="note-lock">${ICON.lock} Access instructions, key codes, Wi‑Fi and internal admin notes are visible to editors of this page only.</div>`;
+    else if (S.secure[id] === null || S.secure[id] === undefined) sec = `<div class="note-lock">Loading protected information…</div>`;
+    else {
+      const s = S.secure[id] || {};
+      const show = val => S.reveal ? esc(val || "Not set") : (val ? '<span class="mask">••••••••</span>' : '<span class="muted">Not set</span>');
+      sec = `<div class="secret">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:13.5px">${ICON.lock} Protected access information</b>
+        <button class="btn sm" type="button" data-act="reveal" style="margin-left:auto">${S.reveal ? "Hide" : "Show"} sensitive info</button></div>
+        ${kv([["Property access", show(s.access_instructions), true], ["Key / access code", show(s.key_notes), true], ["Wi‑Fi", show(s.wifi), true], ["Internal admin notes", show(s.admin_notes), true]])}
+        <span class="muted" style="font-size:12px">Only editors of this page can read this section.</span></div>`;
+    }
+    body = `<section class="panel"><h3>Operational Information ${S.can.write ? `<button class="btn sm r" type="button" data-edit="${esc(id)}" data-focus="ops">${ICON.edit} Edit</button>` : ""}</h3>
+      ${kv([["Check-in time", o.checkin_time], ["Check-out time", o.checkout_time], ["Cleaning schedule", o.cleaning_schedule], ["Parking", o.parking], ["Guest instructions", o.guest_instructions], ["Maintenance notes", o.maintenance_notes]])}
+      ${sec}</section>`;
+  } else {
+    body = `<section class="panel"><div class="calhead"><h2 style="font-size:15px">Booking History · ${res.length}</h2>
+      <div class="pbs" role="group" aria-label="View"><button class="btn sm ${S.histMode === "list" ? "primary" : ""}" type="button" data-hmode="list">List</button><button class="btn sm ${S.histMode === "calendar" ? "primary" : ""}" type="button" data-hmode="calendar">Calendar</button></div></div>
+      <div id="hist"></div></section>`;
+  }
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:16px">
+    <div><a class="btn ghost sm" href="#villas">${ICON.back} Back to Villa List</a></div>
+    <div class="dhead">
+      <div class="row">
+        <div class="t">
+          <h1>${esc(vName(v))}</h1>
+          <div class="meta"><span class="mono">${esc(v.villa_id)}</span>${v.room_number ? `<span>Room ${esc(v.room_number)}</span>` : ""}${stBadge(v.status)}${now ? '<span class="pill stay">Occupied</span>' : ""}${platBadges(v)}</div>
+          ${v.villa_name && v.villa_name !== vName(v) ? `<div class="muted" style="font-size:13px">Listed as “${esc(v.villa_name)}”</div>` : ""}
+        </div>
+        <div class="qa">
+          ${lineBtn(v.owner && v.owner.line_link, v.owner && v.owner.line_group)}
+          ${S.can.write ? `<button class="btn primary" type="button" data-edit="${esc(id)}">${ICON.edit} Edit Villa</button>` : ""}
+        </div>
+      </div>
+      <div class="tabs" role="tablist">${TABS_.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${S.tab === k}">${l}</button>`).join("")}</div>
+    </div>
+    ${body}</div>`;
+  if (S.tab === "history") {
+    const h = $("#hist");
+    if (S.histMode === "list") renderBookingList(h, res.slice().sort((a,b) => (b.cin || 0) - (a.cin || 0)), { inVilla:true });
+    else {
+      if (!S.hCal) { const nx = upcoming[0] || res[res.length - 1]; S.hCal = startOfMonth(nx && nx.cin ? nx.cin : t); }
+      renderCal(h, res, { month:S.hCal, sel:S.hSel, scope:"hist", inVilla:true });
+    }
+  }
+}
+
+/* ===== Bookings & calendar ===== */
+function statusPill(s){
+  if (!s) return "";
+  const cls = /confirm|ยืนยัน/i.test(s) ? "ok" : isCancelled({ status:s }) ? "bad" : "neutral";
+  return `<span class="pill ${cls}">${esc(s)}</span>`;
+}
+function fmtAmt(a){ const n = Number(String(a).replace(/[, ฿]/g, "")); return a === "" ? "" : isFinite(n) ? "฿" + n.toLocaleString("en-US") : esc(a); }
+function bookingRow(b, d, opt = {}){
+  const st = d ? stateOf(b, d) : "";
+  const tag = st === "in" ? `<span class="pill in">Check-in</span>` : st === "out" ? `<span class="pill out">Check-out</span>` : st === "stay" ? `<span class="pill stay">Staying</span>` : "";
+  const v = b.villaId && S.vmap.get(b.villaId);
+  const name = v ? `<a href="#villa-${esc(v.villa_id)}">${hl(vName(v), S.bq)}</a> <span class="mono muted">${esc(v.villa_id)}</span>` : `<span class="unl">Not linked to a villa</span>`;
+  const linkBtn = b.pending ? "" : `<button class="btn sm" type="button" data-bedit="${esc(b.key)}" title="Edit or add details to this booking">${ICON.edit} Edit</button>`;
+  return `<div class="bk ${S.flash === b.key ? "flash" : ""}" data-bkey="${esc(b.key)}">
+    <div class="dates num">
+      <div><span class="pill in">IN</span> ${esc(fmtDY(b.cin))}</div>
+      <div><span class="pill out">OUT</span> ${esc(fmtDY(b.cout))}</div>
+      ${b.nights != null ? `<span class="muted" style="font-size:12px">${b.nights} night${b.nights === 1 ? "" : "s"}</span>` : ""}
+    </div>
+    <div class="who">
+      <span class="booked num">Reservation date: ${b.bookedAt ? esc(fmtDY(b.bookedAt)) : "not recorded"}</span>
+      ${opt.inVilla ? `<b>${hl(b.guest || "Guest", S.bq)}</b>` : `<div>${name}</div>`}
+      <div class="meta">${opt.inVilla ? "" : `<span>${hl(b.guest || "—", S.bq)}</span>`}${b.guests ? `<span>${esc(b.guests)} guests</span>` : ""}${platBadge(b.platform)}${b.bid ? `<span class="mono">#${hl(b.bid, S.bq)}</span>` : ""}</div>
+      ${!opt.inVilla && b.sheetVilla && (!v || b.linkHow === "manual") ? `<div class="meta">Sheet name: “${esc(b.sheetVilla)}”${b.linkHow === "manual" ? " · linked by hand" : ""}</div>` : ""}
+      ${b.note ? `<div class="meta">${esc(b.note)}</div>` : ""}
+    </div>
+    <div class="side">
+      <div class="pbs" style="justify-content:flex-end">${b.pending ? `<span class="pill neutral" title="Saved to the sheet; waiting for the sheet to return it">New · syncing</span>` : ""}${tag}${statusPill(b.status)}</div>
+      ${b.amount ? `<span class="amt num">${fmtAmt(b.amount)}</span>` : ""}
+    </div>
+    <div class="acts2">${notifyBtns(b)}<span class="sp"></span>${linkBtn}${v ? lineBtn(v.owner && v.owner.line_link, v.owner && v.owner.line_group, "sm") : ""}</div>
+  </div>`;
+}
+function renderBookingList(el, list, opt = {}){
+  if (!S.resReady) { el.innerHTML = `<div class="empty">Loading bookings…</div>`; return; }
+  if (!list.length) { el.innerHTML = `<div class="empty">No bookings in this view.${!opt.inVilla && S.rng !== "all" ? `<button class="btn sm" type="button" data-act="rngAll">Show all bookings</button>` : ""}</div>`; return; }
+  if (opt.inVilla) { el.innerHTML = `<div class="bl">${list.map(b => bookingRow(b, null, opt)).join("")}</div>`; return; }
+  const groups = new Map();
+  list.forEach(b => { const k = b.cin ? b.cin.getTime() : 0; if (!groups.has(k)) groups.set(k, { d:b.cin, items:[] }); groups.get(k).items.push(b); });
+  el.innerHTML = `<div class="bl">${[...groups.values()].map(g => `<div class="bday">Check-in ${esc(fmtDY(g.d))}${sameDay(g.d, today()) ? " · Today" : ""}</div>${g.items.map(b => bookingRow(b)).join("")}`).join("")}</div>`;
+}
+function bookingPass(b, ignoreRange){
+  if (S.bPlat && b.pkey !== S.bPlat) return false;
+  if (S.bStatus === "unlinked") { if (b.villaId) return false; }
+  else if (S.bStatus && b.status !== S.bStatus) return false;
+  const terms = S.bq.trim().split(/\s+/).map(norm).filter(Boolean);
+  if (terms.length) {
+    const v = b.villaId && S.vmap.get(b.villaId);
+    const h = norm([b.sheetVilla, b.guest, b.bid, b.platform, b.note, v ? villaHay(v) : ""].join(" "));
+    if (!terms.every(t => h.includes(t))) return false;
+  }
+  if (ignoreRange || S.rng === "all") return true;
+  if (S.rng === "custom") {
+    const from = S.bFrom ? parseDate(S.bFrom) : null, to = S.bTo ? parseDate(S.bTo) : null;
+    if (!from && !to) return true;
+    const inR = d => !!d && (!from || d >= from) && (!to || d <= to);
+    if (S.bDateBy === "cin") return inR(b.cin);
+    if (S.bDateBy === "cout") return inR(b.cout);
+    if (S.bDateBy === "booked") return inR(b.bookedAt);
+    if (!b.cin) return false;
+    const out = b.cout || b.cin;
+    return (!to || b.cin <= to) && (!from || out >= from);
+  }
+  const t = today(); if (!b.cin) return false;
+  const out = b.cout || addDays(b.cin, 1);
+  if (S.rng === "upcoming") return out >= t;
+  if (S.rng === "today") return b.cin <= t && out >= t;
+  if (S.rng === "7d") return b.cin <= addDays(t, 7) && out >= t;
+  if (S.rng === "month") return b.cin < new Date(t.getFullYear(), t.getMonth() + 1, 1) && out >= startOfMonth(t);
+  return true;
+}
+function bookingToolbar(withRange){
+  const sts = [...new Set(S.res.map(b => b.status).filter(Boolean))].sort();
+  return `<div class="toolbar">
+    <label class="search">${ICON.search}<input class="inp" id="bq" type="search" placeholder="Search villa, guest, Booking ID…" autocomplete="off" aria-label="Search bookings"></label>
+    ${ftoggleBtn()}
+    <select class="sel" id="bPlat" aria-label="Platform"><option value="">All platforms</option>${PLATS.map(p => `<option value="${p.key}">${p.label}</option>`).join("")}</select>
+    <select class="sel" id="bStatus" aria-label="Status"><option value="">All statuses</option>${sts.map(s => `<option>${esc(s)}</option>`).join("")}<option value="unlinked">Not linked to a villa</option></select>
+    ${withRange ? `<select class="sel" id="rng" aria-label="Date range"><option value="upcoming">Upcoming + staying</option><option value="today">Today</option><option value="7d">Next 7 days</option><option value="month">This month</option><option value="all">All dates</option><option value="custom">Custom dates</option></select>
+    <div class="dfilter" role="group" aria-label="Date filter">
+      <select class="sel" id="bDateBy" aria-label="Filter dates by"><option value="stay">Stay dates</option><option value="cin">Check-in date</option><option value="cout">Check-out date</option><option value="booked">Reservation date</option></select>
+      <label for="bFrom">From</label><input class="inp" id="bFrom" type="date">
+      <label for="bTo">To</label><input class="inp" id="bTo" type="date">
+      <button class="btn primary sm" type="button" data-act="dsearch">${ICON.search} ค้นหา</button>
+      <button class="btn ghost sm" type="button" data-act="dclear">Clear</button>
+    </div>` : ""}
+  </div>
+  ${withRange ? `<div id="dres" class="dres" hidden></div>` : ""}`;
+}
+function wireBookingToolbar(redraw){
+  $("#bq").value = S.bq; $("#bPlat").value = S.bPlat; $("#bStatus").value = S.bStatus;
+  if ($("#rng")) { $("#rng").value = S.rng; $("#bDateBy").value = S.bDateBy; $("#bFrom").value = S.bFrom; $("#bTo").value = S.bTo; }
+  let t; $("#bq").addEventListener("input", e => { clearTimeout(t); t = setTimeout(() => { S.bq = e.target.value; redraw(); }, 120); });
+  $("#bPlat").addEventListener("change", e => { S.bPlat = e.target.value; redraw(); });
+  $("#bStatus").addEventListener("change", e => { S.bStatus = e.target.value; redraw(); });
+  if ($("#rng")) {
+    $("#rng").addEventListener("change", e => {
+      S.rng = e.target.value;
+      if (S.rng !== "custom") { S.bFrom = S.bTo = ""; $("#bFrom").value = ""; $("#bTo").value = ""; ls.set("rng", S.rng); }
+      redraw();
+    });
+    ["bFrom","bTo","bDateBy"].forEach(id => $("#" + id).addEventListener("change", () => applyDates(false)));
+    ["bFrom","bTo"].forEach(id => $("#" + id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); applyDates(true); } }));
+  }
+}
+// Apply the From/To dates. On "ค้นหา" (explicit) an empty pair says what's missing; a reversed pair is swapped.
+function applyDates(explicit){
+  let f = $("#bFrom").value, t = $("#bTo").value;
+  S.bDateBy = $("#bDateBy").value;
+  if (!f && !t) { if (explicit) toast("ใส่วันที่ From หรือ To ก่อนกดค้นหา"); if (S.rng === "custom") { S.rng = "all"; $("#rng").value = "all"; } drawBookings(); return; }
+  if (f && t && f > t) { [f, t] = [t, f]; $("#bFrom").value = f; $("#bTo").value = t; }
+  S.bFrom = f; S.bTo = t; S.rng = "custom"; $("#rng").value = "custom";
+  drawBookings();
+  if (explicit) { const l = $("#blist"); if (l) l.scrollIntoView({ block:"start", behavior:"smooth" }); }
+}
+function todayStats(){
+  const t = today(), live = S.res.filter(b => !isCancelled(b));
+  return { cin: live.filter(b => sameDay(b.cin, t)).length, cout: live.filter(b => sameDay(b.cout, t)).length,
+    stay: live.filter(b => b.cin && b.cout && b.cin <= t && t < b.cout).length, next: live.filter(b => b.cin && b.cin > t && b.cin <= addDays(t, 7)).length,
+    unl: S.res.filter(b => !b.villaId).length };
+}
+function renderBookings(){
+  const el = $("#page");
+  if (S.mounted !== "bookings") {
+    S.mounted = "bookings";
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:16px">
+      <div class="phead"><div><h1>Booking</h1><p>Check-ins and check-outs from the Google Sheet's Reservation tab, linked to villas by Villa ID.</p></div>
+        <button class="btn" type="button" data-act="ntoday">${lineIcon} แจ้ง Check-in / Check-out วันนี้</button>
+        <button class="btn primary" type="button" data-act="badd">${ICON.plus} Add booking</button></div>
+      <div class="stats" id="bstats"></div>${bookingToolbar(true)}<div id="blist"></div></div>`;
+    wireBookingToolbar(drawBookings);
+  }
+  drawBookings();
+}
+function drawBookings(){
+  if (!$("#blist")) return;
+  const s = todayStats();
+  $("#bstats").innerHTML = `
+    <button class="stat g" type="button" data-rng="today"><span>Check-ins today</span><b class="num">${s.cin}</b><small>${esc(fmtD(today()))}</small></button>
+    <button class="stat m" type="button" data-rng="today"><span>Check-outs today</span><b class="num">${s.cout}</b><small>turnovers to clean</small></button>
+    <button class="stat o" type="button" data-rng="today"><span>Staying tonight</span><b class="num">${s.stay}</b><small>occupied villas</small></button>
+    <button class="stat" type="button" data-unl="1"><span>Not linked</span><b class="num">${s.unl}</b><small>bookings without a Villa ID</small></button>`;
+  const list = S.res.filter(b => bookingPass(b));
+  const dr = $("#dres");
+  if (dr) {
+    if (S.rng === "custom" && (S.bFrom || S.bTo)) {
+      const by = { stay:"วันเข้าพัก", cin:"วันเช็คอิน", cout:"วันเช็คเอาท์", booked:"วันจอง" }[S.bDateBy];
+      const span = `${S.bFrom ? fmtD(parseDate(S.bFrom)) : "…"} – ${S.bTo ? fmtD(parseDate(S.bTo)) : "…"}`;
+      dr.innerHTML = `พบ <b class="num">${list.length}</b> การจอง · ${esc(by)} ${esc(span)}`;
+      dr.hidden = false;
+    } else dr.hidden = true;
+  }
+  renderBookingList($("#blist"), list);
+}
+function renderCalendarPage(){
+  const el = $("#page");
+  if (S.mounted !== "calendar") {
+    S.mounted = "calendar";
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:16px">
+      <div class="phead"><div><h1>Calendar</h1><p>Each bar runs from check-in to check-out. Click a villa bar to open its Villa Detail page, or a day to list its activity.</p></div></div>
+      ${bookingToolbar(false)}<div id="cwrap"></div></div>`;
+    wireBookingToolbar(drawCalendar);
+  }
+  drawCalendar();
+}
+function drawCalendar(){ const w = $("#cwrap"); if (w) renderCal(w, S.res.filter(b => bookingPass(b, true)), { month:S.calMonth, sel:S.selDay, scope:"main" }); }
+function renderCal(el, list, o){
+  if (!S.resReady) { el.innerHTML = `<div class="empty">Loading bookings…</div>`; return; }
+  const m = o.month, t = today(), first = new Date(m.getFullYear(), m.getMonth(), 1), start = addDays(first, -first.getDay());
+  const live = list.filter(b => b.cin);
+  const label = b => { const v = b.villaId && S.vmap.get(b.villaId); return o.inVilla ? (b.guest || b.platform) : (v ? vName(v) : b.sheetVilla); };
+  let weeks = "";
+  for (let w = 0; w < 6; w++) {
+    const ws = addDays(start, w * 7), we = addDays(ws, 6);
+    if (w >= 4 && ws.getMonth() !== m.getMonth() && ws > first) break;
+    // stay bars: check-in day through check-out day, split per week
+    const segs = live.filter(b => b.cin <= we && (b.cout || b.cin) >= ws)
+      .map(b => { const end = b.cout || b.cin, s = b.cin < ws ? ws : b.cin, e = end > we ? we : end;
+        return { b, c1: Math.round((s - ws) / DAY) + 1, c2: Math.round((e - ws) / DAY) + 2, starts: b.cin >= ws, ends: end <= we }; })
+      .sort((a, z) => a.c1 - z.c1 || (z.c2 - z.c1) - (a.c2 - a.c1));
+    const lanes = [];
+    segs.forEach(sg => { let l = lanes.findIndex(endCol => endCol <= sg.c1); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = sg.c2; sg.lane = l; });
+    const rowsN = lanes.length + 2;
+    let cells = "";
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(ws, i);
+      const occ = live.filter(b => !isCancelled(b) && b.cout && b.cin <= d && d < b.cout).length;
+      cells += `<div class="cell ${d.getMonth() !== m.getMonth() ? "other" : ""} ${sameDay(d, t) ? "today" : ""} ${sameDay(d, o.sel) ? "sel" : ""}" style="grid-column:${i + 1};grid-row:1 / span ${rowsN}" data-day="${d.getTime()}" data-scope="${o.scope}" role="button" tabindex="0" aria-label="${esc(fmtDY(d))}">
+        <span class="d num"><span>${d.getDate()}</span>${occ ? `<span class="occ" title="Villas occupied this night">${occ}</span>` : ""}</span></div>`;
+    }
+    const bars = segs.map(sg => {
+      const b = sg.b, v = b.villaId && S.vmap.get(b.villaId);
+      const txt = o.inVilla ? label(b) : `${label(b)}${b.guest ? " · " + b.guest : ""}`;
+      const tip = `${label(b)} — ${b.guest || "Guest"} · ${fmtD(b.cin)} → ${fmtD(b.cout)}${b.status ? " · " + b.status : ""}`;
+      const cls = `bar ${sg.starts ? "s" : ""} ${sg.ends ? "e" : ""} ${isCancelled(b) ? "x" : ""} ${v ? "" : "unl"}`;
+      const style = `grid-column:${sg.c1} / ${sg.c2};grid-row:${sg.lane + 2}`;
+      const inner = `${sg.starts ? "" : "… "}${esc(txt)}`;
+      return v && !o.inVilla ? `<a class="${cls}" style="${style}" href="#villa-${esc(v.villa_id)}" title="${esc(tip)} — open villa">${inner}</a>`
+        : `<span class="${cls}" style="${style}" title="${esc(tip)}" data-day="${b.cin.getTime()}" data-scope="${o.scope}">${inner}</span>`;
+    }).join("");
+    weeks += `<div class="wk" style="grid-template-rows:30px ${lanes.length ? `repeat(${lanes.length}, 22px) ` : ""}minmax(10px,1fr)">${cells}${bars}</div>`;
+  }
+  let panel = "";
+  if (o.sel) {
+    const items = live.filter(b => stateOf(b, o.sel));
+    panel = `<div style="display:flex;flex-direction:column;gap:8px"><div class="calhead"><h2 style="font-size:15px">${esc(fmtDY(o.sel))}</h2></div>${items.length ? `<div class="bl">${items.map(b => bookingRow(b, o.sel, { inVilla:o.inVilla })).join("")}</div>` : `<div class="empty">No check-ins, check-outs or stays on this day.</div>`}</div>`;
+  }
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
+    <div class="calhead"><h2>${esc(fmtMonth(m))}</h2>
+      <button class="btn sm" type="button" data-cal="-1" data-scope="${o.scope}" aria-label="Previous month">‹</button>
+      <button class="btn sm" type="button" data-cal="0" data-scope="${o.scope}">Today</button>
+      <button class="btn sm" type="button" data-cal="1" data-scope="${o.scope}" aria-label="Next month">›</button></div>
+    <div class="legend"><span><i style="background:var(--stay-soft);border-left:3px solid var(--in);border-right:3px solid var(--out)"></i>Stay: check-in (green edge) to check-out (orange edge)</span><span><i style="background:var(--stay-soft);border-radius:50%"></i>Number of villas occupied that night</span></div>
+    <div class="calscroll"><div class="calgrid"><div class="dows">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x => `<div class="dow">${x}</div>`).join("")}</div>${weeks}</div></div>
+    ${panel}</div>`;
+}
+
+/* ===== Modals ===== */
+let modalClose = null;
+function openModal(html, small, onClose){
+  $("#modalRoot").innerHTML = `<div class="modal ${small ? "small" : ""}" role="dialog" aria-modal="true">${html}</div>`;
+  $("#scrim").hidden = false; modalClose = onClose || null;
+  setTimeout(() => { const f = $("#modalRoot [autofocus]") || $("#modalRoot input,#modalRoot button"); if (f) f.focus(); }, 0);
+}
+function closeModal(){ $("#modalRoot").innerHTML = ""; $("#scrim").hidden = true; if (modalClose) { const c = modalClose; modalClose = null; c(); } }
+
+const F = (name, label, val, o = {}) => {
+  const id = "f_" + name.replace(/\./g, "_");
+  const req = o.req ? ' <span class="req" aria-hidden="true">*</span>' : "";
+  let input;
+  if (o.type === "select") input = `<select class="inp" id="${id}" data-f="${name}">${o.options.map(([k, l]) => `<option value="${esc(k)}" ${k === val ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+  else if (o.type === "textarea") input = `<textarea class="inp" id="${id}" data-f="${name}" rows="3">${esc(val ?? "")}</textarea>`;
+  else input = `<input class="inp" id="${id}" data-f="${name}" type="${o.type || "text"}" value="${esc(val ?? "")}" ${o.ro ? "readonly" : ""} ${o.min != null ? `min="${o.min}"` : ""} ${o.ph ? `placeholder="${esc(o.ph)}"` : ""} ${o.auto ? "autofocus" : ""}>`;
+  return `<div class="f ${o.cls || ""}" data-wrap="${name}"><label for="${id}">${esc(label)}${req}</label>${input}<span class="err" hidden></span></div>`;
+};
+function listingRow(l, i){
+  return `<div class="lrow" data-lrow>
+    <select class="inp" data-l="platform" aria-label="Platform">${PLATS.map(p => `<option value="${p.label}" ${platKey(l.platform) === p.key ? "selected" : ""}>${p.label}</option>`).join("")}</select>
+    <input class="inp" data-l="property_name" value="${esc(l.property_name)}" placeholder="Property name on platform" aria-label="Property name on platform">
+    <input class="inp" data-l="listing_id" value="${esc(l.listing_id)}" placeholder="Listing ID" aria-label="Listing ID">
+    <input class="inp" data-l="listing_url" value="${esc(l.listing_url)}" placeholder="https://…" aria-label="Listing URL">
+    <select class="inp" data-l="status" aria-label="Platform status">${["Listed","Paused","Unlisted"].map(s => `<option ${s === (l.status || "Listed") ? "selected" : ""}>${s}</option>`).join("")}</select>
+    <button class="btn ghost icon sm x" type="button" data-act="lrm" aria-label="Remove listing">${ICON.del}</button>
+    <input class="inp w" data-l="notes" value="${esc(l.notes)}" placeholder="Notes (optional)" aria-label="Listing notes">
+  </div>`;
+}
+function nextVillaId(){
+  let max = 0; S.villas.forEach(v => { const m = String(v.villa_id).match(/^V(\d+)$/i); if (m) max = Math.max(max, +m[1]); });
+  return "V" + String(max + 1).padStart(3, "0");
+}
+async function openForm(id, focus){
+  if (!S.can.write) return;
+  const editing = !!id;
+  const v = editing ? JSON.parse(JSON.stringify(S.vmap.get(id) || blankVilla())) : blankVilla();
+  if (!editing) v.villa_id = nextVillaId();
+  if (editing && S.can.admin) await loadSecure(id);
+  const sec = (editing && S.secure[id]) || {};
+  const o = v.owner || {}, h = v.housekeeper || {}, op = v.ops || {};
+  openModal(`
+    <header><h2>${editing ? "Edit " + esc(vName(v)) : "Add New Villa"}</h2><button class="btn ghost icon" type="button" data-act="mclose" aria-label="Close">✕</button></header>
+    <form class="mb" id="vform" novalidate>
+      <fieldset><legend>General Information</legend><div class="fg">
+        ${F("villa_id", "Villa ID", v.villa_id, { req:true, ro:editing, ph:"V001" })}
+        ${F("villa_name", "Villa name", v.villa_name, { req:true, cls:"w2", auto:!editing })}
+        ${F("internal_name", "Internal villa name (primary reference)", v.internal_name, { cls:"w2", ph:"Leave blank to use the villa name" })}
+        ${F("room_number", "Room number", v.room_number, { req:!editing })}
+        ${F("rooms", "Number of rooms", v.rooms, { type:"number", min:0, req:!editing })}
+        ${F("bedrooms", "Bedrooms", v.bedrooms, { type:"number", min:0 })}
+        ${F("bathrooms", "Bathrooms", v.bathrooms, { type:"number", min:0 })}
+        ${F("max_guests", "Maximum guests", v.max_guests, { type:"number", min:1, req:!editing })}
+        ${F("status", "Villa status", v.status, { type:"select", req:true, options:STATUSES.map(s => [s.key, s.label]) })}
+        ${F("address", "Villa address", v.address, { cls:"w2" })}
+        ${F("maps_url", "Google Maps link", v.maps_url, { ph:"https://maps.google.com/…" })}
+        ${F("notes", "General notes", v.notes, { type:"textarea", cls:"w3" })}
+      </div></fieldset>
+      <fieldset id="fs-listings"><legend>Booking Platform Listings</legend>
+        <div id="lrows" style="display:flex;flex-direction:column;gap:8px">${(v.listings || []).map(listingRow).join("")}</div>
+        <div><button class="btn sm" type="button" data-act="ladd">${ICON.plus} Add platform listing</button></div>
+      </fieldset>
+      <fieldset><legend>Owner Information</legend><div class="fg">
+        ${F("owner.name", "Owner name", o.name)}${F("owner.phone", "Owner phone", o.phone, { type:"tel" })}${F("owner.email", "Owner email", o.email, { type:"email" })}
+        ${F("owner.line_display", "LINE display name", o.line_display)}${F("owner.line_group", "LINE group name", o.line_group)}${F("owner.line_link", "LINE group link", o.line_link, { ph:"https://line.me/…" })}
+        ${F("owner.notes", "Owner notes", o.notes, { type:"textarea", cls:"w3" })}
+      </div></fieldset>
+      <fieldset><legend>Housekeeper Information</legend><div class="fg">
+        ${F("housekeeper.name", "Housekeeper name", h.name)}${F("housekeeper.phone", "Housekeeper phone", h.phone, { type:"tel" })}${F("housekeeper.team", "Assigned cleaning team", h.team)}
+        ${F("housekeeper.line_display", "LINE display name", h.line_display)}${F("housekeeper.line_group", "LINE group name", h.line_group)}${F("housekeeper.line_link", "LINE group link", h.line_link, { ph:"https://line.me/…" })}
+        ${F("housekeeper.notes", "Housekeeper notes", h.notes, { type:"textarea", cls:"w3" })}
+      </div></fieldset>
+      <fieldset id="fs-ops"><legend>Operational Information</legend><div class="fg">
+        ${F("ops.checkin_time", "Check-in time", op.checkin_time, { type:"time" })}${F("ops.checkout_time", "Check-out time", op.checkout_time, { type:"time" })}${F("ops.cleaning_schedule", "Cleaning schedule", op.cleaning_schedule, { ph:"e.g. After every check-out" })}
+        ${F("ops.parking", "Parking information", op.parking, { type:"textarea" })}${F("ops.guest_instructions", "Guest instructions", op.guest_instructions, { type:"textarea" })}${F("ops.maintenance_notes", "Maintenance notes", op.maintenance_notes, { type:"textarea" })}
+      </div>
+      ${S.can.admin && S.dbState === "ok" ? `<div class="secret"><b style="font-size:13.5px">${ICON.lock} Protected — editors only</b><div class="fg">
+        ${F("sec.access_instructions", "Property access instructions", sec.access_instructions, { type:"textarea" })}${F("sec.key_notes", "Key / access code notes", sec.key_notes, { type:"textarea" })}${F("sec.wifi", "Wi‑Fi information", sec.wifi, { type:"textarea" })}
+        ${F("sec.admin_notes", "Internal admin notes", sec.admin_notes, { type:"textarea", cls:"w3" })}</div></div>`
+        : `<div class="note-lock">${ICON.lock} Access codes, Wi‑Fi and admin notes can be edited by editors of this page only.</div>`}
+      </fieldset>
+      <div id="formErr" class="banner err" hidden></div>
+    </form>
+    <footer>
+      <button class="btn l" type="button" data-act="mclose">Cancel</button>
+      ${editing ? "" : `<button class="btn" type="button" data-act="save" data-more="1">Save and Add Another</button>`}
+      <button class="btn primary" type="button" data-act="save" data-id="${esc(editing ? id : "")}">Save Villa</button>
+    </footer>`);
+  if (focus) { const f = $("#fs-" + focus); if (f) f.scrollIntoView({ block:"start" }); }
+}
+function readForm(){
+  const out = { owner:{}, housekeeper:{}, ops:{}, sec:{} };
+  document.querySelectorAll("#vform [data-f]").forEach(el => {
+    const [a, b] = el.dataset.f.split(".");
+    let val = el.value.trim();
+    if (el.type === "number") val = val === "" ? null : Number(val);
+    b ? (out[a][b] = val) : (out[a] = val);
+  });
+  out.listings = [...document.querySelectorAll("#lrows [data-lrow]")].map(r => {
+    const g = k => r.querySelector(`[data-l="${k}"]`).value.trim();
+    return { platform:g("platform"), property_name:g("property_name"), listing_id:g("listing_id"), listing_url:g("listing_url"), status:g("status"), notes:g("notes") };
+  }).filter(l => l.property_name || l.listing_id || l.listing_url);
+  return out;
+}
+function validate(d, editing){
+  const errs = {};
+  const need = editing ? ["villa_name", "status"] : ["villa_id", "villa_name", "room_number", "rooms", "max_guests", "status"];
+  need.forEach(k => { if (d[k] === "" || d[k] == null) errs[k] = "Required"; });
+  if (!editing && d.villa_id) {
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(d.villa_id)) errs.villa_id = "Use letters, numbers, - or _ only";
+    else if ([...S.vmap.keys()].some(k => k.toLowerCase() === d.villa_id.toLowerCase())) errs.villa_id = `${d.villa_id} is already used by ${vName(S.vmap.get([...S.vmap.keys()].find(k => k.toLowerCase() === d.villa_id.toLowerCase())))}`;
+  }
+  ["rooms", "max_guests", "bedrooms", "bathrooms"].forEach(k => { if (d[k] != null && (!Number.isFinite(d[k]) || d[k] < 0)) errs[k] = "Enter a number of 0 or more"; });
+  if (d.max_guests === 0) errs.max_guests = "At least 1 guest";
+  const urls = [["maps_url", d.maps_url], ["owner.line_link", d.owner.line_link], ["housekeeper.line_link", d.housekeeper.line_link]];
+  urls.forEach(([k, u]) => { if (u && !/^https?:\/\//i.test(u)) errs[k] = "Start the link with https://"; });
+  if (d.owner.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.owner.email)) errs["owner.email"] = "Enter a valid email";
+  document.querySelectorAll("#vform [data-wrap]").forEach(w => {
+    const e = errs[w.dataset.wrap], s = w.querySelector(".err");
+    w.classList.toggle("invalid", !!e); s.hidden = !e; s.textContent = e || "";
+  });
+  return errs;
+}
+let saving = false;
+async function saveVilla(editId, more){
+  if (saving) return;
+  const d = readForm(), editing = !!editId;
+  const errs = validate(d, editing);
+  if (Object.keys(errs).length) {
+    const f = document.querySelector("#vform .invalid .inp"); if (f) { f.focus(); f.scrollIntoView({ block:"center" }); }
+    return;
+  }
+  const id = editing ? editId : d.villa_id;
+  const prev = editing ? S.vmap.get(id) : null;
+  const now = new Date().toISOString();
+  const doc = { ...blankVilla(), ...(prev ? JSON.parse(JSON.stringify(prev)) : {}),
+    villa_id:id, villa_name:d.villa_name, internal_name:d.internal_name || d.villa_name, room_number:d.room_number,
+    rooms:d.rooms, bedrooms:d.bedrooms, bathrooms:d.bathrooms, max_guests:d.max_guests, address:d.address, maps_url:d.maps_url,
+    status:d.status, notes:d.notes, listings:d.listings, owner:d.owner, housekeeper:d.housekeeper, ops:d.ops,
+    updated_at:now, created_at:(prev && prev.created_at) || now };
+  if (!prev) doc.source = { sheet_row:null, key:"" };
+  const fe = $("#formErr"); fe.hidden = true;
+  saving = true; document.querySelectorAll('[data-act="save"]').forEach(b => b.disabled = true);
+  try {
+    if (!db) throw { code:"none", message:"the shared database isn't available on this page" };
+    await db.doc("villas/" + id).set(doc);
+    if (S.can.admin && document.querySelector('#vform [data-f^="sec."]')) {
+      const s = d.sec, had = S.secure[id] || {};
+      if (JSON.stringify(s) !== JSON.stringify({ access_instructions:had.access_instructions || "", key_notes:had.key_notes || "", wifi:had.wifi || "", admin_notes:had.admin_notes || "" })) {
+        await db.doc("secure/" + id).set({ ...s, updated_at:now }); S.secure[id] = { ...s };
+      }
+    }
+    // reflect immediately; the live snapshot confirms
+    const list = S.villas.filter(v => v.villa_id !== id).concat([doc]); setVillas(list);
+    toast(editing ? `Saved ${vName(doc)}` : `Added ${vName(doc)} (${id})`);
+    if (more) { saving = false; closeModal(); render(); openForm(null); return; }
+    closeModal();
+    if (!editing) go("villa-" + id); else render();
+  } catch (e) {
+    fe.textContent = writeErr(e); fe.hidden = false; fe.scrollIntoView({ block:"center" });
+  } finally {
+    saving = false; document.querySelectorAll('[data-act="save"]').forEach(b => b.disabled = false);
+  }
+}
+function confirmDelete(id){
+  const v = S.vmap.get(id); if (!v) return;
+  const n = villaRes(id).length;
+  openModal(`<header><h2>Delete ${esc(vName(v))}?</h2></header>
+    <div class="mb"><p style="margin:0">This permanently removes villa <b class="mono">${esc(id)}</b>, its contacts, platform listings and protected access notes from Villa Board. It can't be undone.</p>
+    ${n ? `<p class="muted" style="margin:0">${n} booking${n === 1 ? "" : "s"} in the Google Sheet will show as “Not linked to a villa”. The sheet itself is not changed.</p>` : ""}
+    <div id="delErr" class="banner err" hidden></div></div>
+    <footer><button class="btn" type="button" data-act="mclose" autofocus>Cancel</button><button class="btn danger" type="button" data-act="dodel" data-id="${esc(id)}">Delete villa</button></footer>`, true);
+}
+async function doDelete(id){
+  const v = S.vmap.get(id);
+  try {
+    await db.doc("villas/" + id).delete();
+    if (S.can.admin) { try { await db.doc("secure/" + id).delete(); } catch {} }
+    setVillas(S.villas.filter(x => x.villa_id !== id));
+    closeModal(); toast(`Deleted ${vName(v)}`);
+    if (S.route.name === "villa") go("villas"); else render();
+  } catch (e) { const el = $("#delErr"); el.textContent = writeErr(e); el.hidden = false; }
+}
+function openLinkPicker(key){
+  const b = S.res.find(x => x.key === key); if (!b) return;
+  openModal(`<header><h2>Link booking to a villa</h2><button class="btn ghost icon" type="button" data-act="mclose" aria-label="Close">✕</button></header>
+    <div class="mb">
+      <p style="margin:0;font-size:13.5px">${platBadge(b.platform)} <b>${esc(b.guest || "Guest")}</b> · ${esc(fmtD(b.cin))} → ${esc(fmtD(b.cout))}<br><span class="muted">Name in sheet: “${esc(b.sheetVilla)}”</span></p>
+      <label class="search">${ICON.search}<input class="inp" id="pq" type="search" placeholder="Search villa name, ID or room" autofocus aria-label="Search villas"></label>
+      <div class="pick" id="plist"></div>
+      ${S.links[key] ? `<button class="btn sm" type="button" data-act="unlink" data-key="${esc(key)}">Remove manual link (match by name again)</button>` : ""}
+      <div id="linkErr" class="banner err" hidden></div>
+    </div>`, true);
+  const draw = () => {
+    const terms = $("#pq").value.trim().split(/\s+/).map(norm).filter(Boolean);
+    const list = S.villas.filter(v => terms.every(t => villaHay(v).includes(t))).slice(0, 40);
+    $("#plist").innerHTML = list.map(v => `<button type="button" data-pick="${esc(v.villa_id)}" data-key="${esc(key)}"><span class="mono muted">${esc(v.villa_id)}</span> · <b>${esc(vName(v))}</b>${v.room_number ? ` · Room ${esc(v.room_number)}` : ""}</button>`).join("") || `<span class="muted">No villas match.</span>`;
+  };
+  $("#pq").value = b.sheetVilla.split(/\s+/).slice(0, 2).join(" ");
+  $("#pq").addEventListener("input", draw); draw();
+}
+async function saveLink(key, villaId){
+  const b = S.res.find(x => x.key === key);
+  try {
+    if (villaId) await db.doc("booking_links/" + key).set({ villa_id:villaId, booking_id:b ? b.bid : "", platform:b ? b.platform : "", sheet_villa_name:b ? b.sheetVilla : "", linked_at:new Date().toISOString() });
+    else await db.doc("booking_links/" + key).delete();
+    if (villaId) S.links[key] = { villa_id:villaId }; else delete S.links[key];
+    resolveBookings(); closeModal(); render();
+    toast(villaId ? `Linked to ${vName(S.vmap.get(villaId))}` : "Manual link removed");
+  } catch (e) { const el = $("#linkErr"); if (el) { el.textContent = writeErr(e); el.hidden = false; } }
+}
+async function syncFromSheet(){
+  if (!S.sheetVillaRows) { toast("The Google Sheet hasn't loaded yet. Press Refresh first."); return; }
+  const have = new Set(S.villas.flatMap(v => v.source ? (v.source.keys || [v.source.key]) : []).filter(Boolean));
+  const fresh = mapSheetRows(S.sheetVillaRows).filter(v => !v.source.keys.some(k => have.has(k)));
+  if (!fresh.length) { toast("Every villa in the sheet is already in the database"); return; }
+  openModal(`<header><h2>Add ${fresh.length} villa${fresh.length === 1 ? "" : "s"} from the sheet?</h2></header>
+    <div class="mb"><p style="margin:0">These rows in “OTA Villa Matching” aren't in the villa database yet. Each gets the next free Villa ID. Existing villas are not changed.</p>
+    <div class="pick">${fresh.slice(0, 12).map(v => `<div class="muted" style="font-size:13px">• ${esc(v.internal_name)}</div>`).join("")}${fresh.length > 12 ? `<div class="muted">…and ${fresh.length - 12} more</div>` : ""}</div>
+    <div id="syncErr" class="banner err" hidden></div></div>
+    <footer><button class="btn" type="button" data-act="mclose">Cancel</button><button class="btn primary" type="button" data-act="dosync">Add villas</button></footer>`, true);
+  S._pendingSync = fresh;
+}
+async function doSync(){
+  const fresh = S._pendingSync || []; let n = parseInt(nextVillaId().slice(1), 10), done = 0;
+  const btn = document.querySelector('[data-act="dosync"]'); if (btn) btn.disabled = true;
+  try {
+    for (const v of fresh) {
+      const id = "V" + String(n++).padStart(3, "0"), now = new Date().toISOString();
+      await db.doc("villas/" + id).set({ ...v, villa_id:id, created_at:now, updated_at:now }); done++;
+      if (btn) btn.textContent = `Adding… ${done}/${fresh.length}`;
+    }
+    closeModal(); toast(`Added ${done} villa${done === 1 ? "" : "s"} from the sheet`);
+  } catch (e) { const el = $("#syncErr"); el.textContent = `Added ${done} of ${fresh.length}. ` + writeErr(e); el.hidden = false; if (btn) btn.disabled = false; }
+}
+
+/* ===== Add booking (appends a row to the Reservation sheet) ===== */
+const SHEET_PLATS = ["Airbnb", "Booking", "Agoda", "Trip", "Direct", "Other"];
+const isoDate = d => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "";
+// editKey: open the form filled with that booking and save changes back to its sheet row.
+function openBookingForm(editKey){
+  const eb = editKey ? S.res.find(x => x.key === editKey) : null;
+  if (editKey && !eb) return;
+  if (eb && (eb.pending || !eb.row)) { toast("This booking is still syncing with the sheet. Press Refresh, then try Edit again."); return; }
+  S._bEdit = eb ? eb.key : null;
+  const sts = [...new Set(["Confirmed", "Pending", "Cancelled", ...S.res.map(b => b.status).filter(Boolean)])];
+  const plats = [...new Set([...SHEET_PLATS, ...(eb && eb.platform ? [eb.platform] : [])])];
+  const villas = S.villas.slice().sort((a, b) => vName(a).localeCompare(vName(b)));
+  const val = eb ? { platform: eb.platform, villa: eb.villaId || "", booked: isoDate(eb.bookedAt), cin: isoDate(eb.cin), cout: isoDate(eb.cout),
+      guest: eb.guest, guests: String(eb.guests || "").replace(/[^\d]/g, ""), amount: String(eb.amount || "").replace(/[^\d.]/g, ""), bid: eb.bid, status: eb.status || "Confirmed", note: eb.note }
+    : { platform:"Direct", villa:"", booked: isoDate(today()), cin:"", cout:"", guest:"", guests:"", amount:"", bid:"", status:"Confirmed", note:"" };
+  openModal(`
+    <header><h2>${eb ? "Edit booking" + (eb.bid ? " #" + esc(eb.bid) : "") : "Add booking"}</h2><button class="btn ghost icon" type="button" data-act="mclose" aria-label="Close">✕</button></header>
+    <form class="mb" id="bform" novalidate>
+      <p class="muted" style="margin:0;font-size:13px">${eb ? `Changes are saved to row ${eb.row} of the Google Sheet's <b>Reservation</b> tab.${eb.villaId ? "" : " This booking isn't linked to a villa yet — choose one below."}` : "Saved as a new row in the Google Sheet's <b>Reservation</b> tab, linked to the villa by Villa ID."}</p>
+      <div class="fg">
+        ${F("platform", "Platform", val.platform, { type:"select", req:true, options:plats.map(p => [p, p]) })}
+        <div class="f w2" data-wrap="villa"><label for="f_villa">Villa <span class="req" aria-hidden="true">*</span></label>
+          <select class="inp" id="f_villa" data-f="villa"><option value="">Choose a villa…</option>${villas.map(v => `<option value="${esc(v.villa_id)}" ${v.villa_id === val.villa ? "selected" : ""}>${esc(v.villa_id)} · ${esc(vName(v))}${v.room_number ? " · Room " + esc(v.room_number) : ""}</option>`).join("")}</select>
+          ${eb && eb.sheetVilla ? `<span class="muted" style="font-size:12px">Name in sheet: “${esc(eb.sheetVilla)}”</span>` : ""}
+          <span class="err" hidden></span></div>
+        ${F("booked", "Booking date", val.booked, { type:"date", req:true })}
+        ${F("cin", "Check-in", val.cin, { type:"date", req:true })}
+        ${F("cout", "Check-out", val.cout, { type:"date", req:true })}
+        ${F("guest", "Guest name", val.guest, { req:true, cls:"w2" })}
+        ${F("guests", "Guests", val.guests, { type:"number", min:1 })}
+        ${F("amount", "Amount (THB)", val.amount, { type:"number", min:0 })}
+        ${F("bid", "Booking ID", val.bid, { ph:"Leave blank to create one" })}
+        ${F("status", "Status", val.status, { type:"select", req:true, options:sts.map(s => [s, s]) })}
+        ${F("note", "Note", val.note, { type:"textarea", cls:"w3" })}
+      </div>
+      <div id="bWarn" class="warnbox" hidden></div>
+      <div id="bErr" class="banner err" hidden></div>
+    </form>
+    <footer><button class="btn l" type="button" data-act="mclose">Cancel</button><button class="btn primary" type="button" data-act="bsave" id="bsave">${eb ? "Save changes" : "Save booking"}</button></footer>`);
+  let nights = () => {
+    const a = parseDate($("#f_cin").value), z = parseDate($("#f_cout").value);
+    if (a && (!z || z <= a)) { $("#f_cout").min = isoDate(addDays(a, 1)); }
+  };
+  $("#f_cin").addEventListener("change", nights);
+  ["f_villa","f_cin","f_cout"].forEach(id => $("#" + id).addEventListener("change", () => { S._bOverlapOk = false; $("#bsave").textContent = eb ? "Save changes" : "Save booking"; $("#bWarn").hidden = true; }));
+  S._bOverlapOk = false;
+}
+function readBookingForm(){
+  const o = {}; document.querySelectorAll("#bform [data-f]").forEach(el => o[el.dataset.f] = el.value.trim()); return o;
+}
+let bSaving = false;
+async function saveBooking(){
+  if (bSaving) return;
+  const d = readBookingForm(), errs = {};
+  const eb = S._bEdit ? S.res.find(x => x.key === S._bEdit) : null;
+  if (S._bEdit && !eb) { $("#bErr").textContent = "This booking is no longer in the sheet. Close the form and press Refresh."; $("#bErr").hidden = false; return; }
+  ["platform","villa","booked","cin","cout","guest","status"].forEach(k => { if (!d[k]) errs[k] = "Required"; });
+  const cin = parseDate(d.cin), cout = parseDate(d.cout);
+  if (cin && cout && cout <= cin) errs.cout = "Check-out must be after check-in";
+  if (d.guests && !(+d.guests >= 1)) errs.guests = "At least 1";
+  if (d.amount && !(+d.amount >= 0)) errs.amount = "Enter a number";
+  if (d.bid && S.res.some(b => b !== eb && b.bid && String(b.bid).toLowerCase() === d.bid.toLowerCase())) errs.bid = "This Booking ID is already in the sheet";
+  document.querySelectorAll("#bform [data-wrap]").forEach(w => { const e = errs[w.dataset.wrap], s = w.querySelector(".err"); w.classList.toggle("invalid", !!e); s.hidden = !e; s.textContent = e || ""; });
+  if (Object.keys(errs).length) { const f = document.querySelector("#bform .invalid .inp"); if (f) f.focus(); return; }
+  const v = S.vmap.get(d.villa);
+  const clash = villaRes(d.villa).filter(b => b !== eb && !isCancelled(b) && b.cin && b.cout && b.cin < cout && cin < b.cout);
+  if (clash.length && !/cancel/i.test(d.status) && !S._bOverlapOk) {
+    $("#bWarn").innerHTML = `${esc(vName(v))} already has ${clash.map(b => `${esc(b.guest || "a guest")} (${esc(fmtD(b.cin))} → ${esc(fmtD(b.cout))})`).join(", ")} on these dates. Check the dates, or press <b>Save anyway</b>.`;
+    $("#bWarn").hidden = false; $("#bsave").textContent = "Save anyway"; S._bOverlapOk = true; return;
+  }
+  const pk = platKey(d.platform);
+  const listing = (v.listings || []).find(l => platKey(l.platform) === pk && l.property_name);
+  // keep the sheet's original villa name when neither the villa nor the platform changed
+  const sheetVilla = eb && eb.sheetVilla && eb.villaId === v.villa_id && eb.platform === d.platform ? eb.sheetVilla : (listing ? listing.property_name : vName(v));
+  const bid = d.bid || (eb && eb.bid) || ("VB" + isoDate(today()).replace(/-/g, "").slice(2) + "-" + Math.random().toString(36).slice(2, 6).toUpperCase());
+  const row = [d.platform, sheetVilla, d.booked, d.cin, d.cout, d.amount ? Number(d.amount) : "", d.guest, d.guests ? Number(d.guests) : "", bid, d.status, d.note];
+  const err = $("#bErr"); err.hidden = true;
+  bSaving = true; $("#bsave").disabled = true; $("#bsave").textContent = "Saving…";
+  try {
+    const mcp = await getMcp();
+    if (!mcp) throw { code:"server_not_connected" };
+    const key = bookingKey(pk, bid, 0);
+    if (eb) {
+      const rowNum = await findSheetRow(mcp, eb);
+      await mcp.callTool("Google Sheets", "update_values", { spreadsheetId: SHEET_ID, range: `Reservation!A${rowNum}:K${rowNum}`, values: [row] });
+      if (db) {
+        const now = new Date().toISOString();
+        try { await db.doc("booking_links/" + key).set({ villa_id: v.villa_id, booking_id: bid, platform: d.platform, sheet_villa_name: sheetVilla, linked_at: now }); } catch {}
+        if (eb.key !== key) {
+          if (S.links[eb.key]) { try { await db.doc("booking_links/" + eb.key).delete(); } catch {} }
+          const st = S.stay[eb.key];
+          if (st) { try { await db.doc("stay_status/" + key).set({ ...st, villa_id: v.villa_id, booking_id: bid }); await db.doc("stay_status/" + eb.key).delete(); } catch {} }
+        }
+      }
+      delete S.links[eb.key]; S.links[key] = { villa_id: v.villa_id };
+      Object.assign(eb, { key, platform: d.platform, pkey: pk, sheetVilla, bookedAt: parseDate(d.booked), cin, cout, nights: Math.round((cout - cin) / DAY),
+        amount: d.amount, guest: d.guest, guests: d.guests, bid, status: d.status, note: d.note, villaId: v.villa_id, linkHow: "manual", row: rowNum });
+      S.res.sort((a,b) => (a.cin || 0) - (b.cin || 0));
+      S.flash = key; S._bEdit = null;
+      closeModal(); toast(`Booking ${bid} updated`); render();
+      setTimeout(() => { const el = document.querySelector(`[data-bkey="${CSS.escape(key)}"]`); if (el) el.scrollIntoView({ block:"center", behavior:"smooth" }); }, 50);
+      setTimeout(() => { S.flash = null; }, 6000);
+      loadSheet(true);
+      return;
+    }
+    await mcp.callTool("Google Sheets", "append_values", { spreadsheetId: SHEET_ID, range: "Reservation!A1", values: [row] });
+    if (db) { try { await db.doc("booking_links/" + key).set({ villa_id: v.villa_id, booking_id: bid, platform: d.platform, sheet_villa_name: sheetVilla, linked_at: new Date().toISOString() }); } catch {} }
+    // show it right away, then confirm against the sheet
+    const nb = { key, row: 0, platform: d.platform, pkey: pk, sheetVilla, bookedAt: parseDate(d.booked), cin, cout,
+      nights: Math.round((cout - cin) / DAY), amount: d.amount, guest: d.guest, guests: d.guests, bid, status: d.status, note: d.note,
+      villaId: v.villa_id, linkHow: "manual", pending: true };
+    S.links[key] = { villa_id: v.villa_id };
+    S.pending = (S.pending || []).concat([nb]);
+    S.res = S.res.concat([nb]).sort((a,b) => (a.cin || 0) - (b.cin || 0));
+    if (!bookingPass(nb)) {
+      S.bq = ""; S.bPlat = ""; S.bStatus = "";
+      if (!bookingPass(nb)) { S.rng = "all"; S.bFrom = S.bTo = ""; }
+      S.mounted = "";
+    }
+    S.flash = key;
+    closeModal(); toast(`Booking ${bid} added for ${vName(v)}`);
+    if (S.route.name !== "bookings") go("bookings"); else render();
+    setTimeout(() => { const el = document.querySelector(`[data-bkey="${CSS.escape(key)}"]`); if (el) el.scrollIntoView({ block:"center", behavior:"smooth" }); }, 50);
+    setTimeout(() => { S.flash = null; }, 6000);
+    loadSheet(true);
+  } catch (e) {
+    const m = { needs_reauth:"Google Sheets connection expired. Reconnect it in claude.ai Settings → Connectors.", server_not_connected:"Saving needs the Google Sheets connector, available when this page is opened on claude.ai.",
+      approval_required:"Allow this page to edit Google Sheets, then press Save again.", not_in_manifest:"Editing Google Sheets is turned off for this page in its Permissions menu.",
+      tool_error:"Google Sheets refused the change. Check that your Google account can edit this sheet.",
+      moved:"This booking's row moved or was removed in the sheet. Close the form, press Refresh, and edit it again." }[e && e.code];
+    err.textContent = m || ("The booking may not have been saved" + (e && e.message ? ": " + e.message : "") + ". Press Refresh and check the sheet before trying again.");
+    err.hidden = false;
+  } finally { bSaving = false; const b = $("#bsave"); if (b) { b.disabled = false; b.textContent = S._bOverlapOk ? "Save anyway" : (S._bEdit ? "Save changes" : "Save booking"); } }
+}
+// Confirm the booking is still on the row we loaded it from (rows can shift when people edit the sheet).
+async function findSheetRow(mcp, eb){
+  const same = r => r && (eb.bid ? String(r[8] ?? "").trim() === String(eb.bid) : (String(r[6] ?? "").trim() === eb.guest && parseDate(r[3]) && sameDay(parseDate(r[3]), eb.cin)));
+  const one = await mcp.callTool("Google Sheets", "get_values", { spreadsheetId: SHEET_ID, range: `Reservation!A${eb.row}:K${eb.row}` }, { cache: false });
+  const v1 = one && one.payload && (one.payload.values || (one.payload.content && one.payload.content.values));
+  if (Array.isArray(v1) && same(v1[0])) return eb.row;
+  const all = await mcp.callTool("Google Sheets", "get_values", { spreadsheetId: SHEET_ID, range: TABS.res.range }, { cache: false });
+  const rows = (all && all.payload && (all.payload.values || (all.payload.content && all.payload.content.values))) || [];
+  const hits = rows.map((r, i) => same(r) && i > 0 ? i + 1 : 0).filter(Boolean);
+  if (hits.length === 1) return hits[0];
+  throw { code:"moved" };
+}
+
+/* ===== Check-in / Check-out notices ===== */
+const fmtStamp = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("en-GB", { day:"numeric", month:"short" }) + " " + fmtTime(d); };
+function notifyBtns(b){
+  if (isCancelled(b)) return "";
+  const st = S.stay[b.key] || {};
+  return `${st.checked_in_at ? `<span class="done in">✓ Checked in ${esc(fmtStamp(st.checked_in_at))}</span>` : ""}
+    ${st.checked_out_at ? `<span class="done out">✓ Checked out ${esc(fmtStamp(st.checked_out_at))}</span>` : ""}
+    <button class="btn sm ci" type="button" data-notify="in" data-key="${esc(b.key)}">แจ้ง Check-in</button>
+    <button class="btn sm co" type="button" data-notify="out" data-key="${esc(b.key)}">แจ้ง Check-out</button>`;
+}
+/* Daily notice in the team's LINE format:
+   📅 Check-in / Check-out 19.11.26
+   🟢 IN 19 Nov 2026          (each booking: platform line, 🏠villa [> ส่งอินแล้ว], 19Nov - 22Nov)
+   ———
+   🔴 OUT 19 Nov 2026         (> ส่งเอาท์แล้ว when marked)
+   An empty section reads "NO Have". Cancelled bookings are left out. */
+const PLAT_LINE = { airbnb:"🆎 Air bnb", trip:"💙 Trips", booking:"🔵 Booking", agoda:"🟣 Agoda", direct:"⭐ Direct", other:"▫️ Other" };
+const SEP_LINE = "—————————————————————";
+const dShort = d => d ? d.getDate() + d.toLocaleDateString("en-GB", { month:"short" }) : "-";
+const dLong = d => d.toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+const dDots = d => [d.getDate(), d.getMonth() + 1, d.getFullYear() % 100].map(n => String(n).padStart(2, "0")).join(".");
+function dayMoves(d, onlyKey){
+  const live = S.res.filter(b => !isCancelled(b) && b.cin && (!onlyKey || b.key === onlyKey));
+  const name = b => { const v = b.villaId && S.vmap.get(b.villaId); return v ? vName(v) : b.sheetVilla; };
+  const order = (a, z) => (a.pkey || "").localeCompare(z.pkey || "") || name(a).localeCompare(name(z));
+  return { ins: live.filter(b => sameDay(b.cin, d)).sort(order), outs: live.filter(b => b.cout && sameDay(b.cout, d)).sort(order), name };
+}
+function dayNoticeText(d, onlyKey){
+  const { ins, outs, name } = dayMoves(d, onlyKey);
+  const block = (b, kind) => {
+    const st = S.stay[b.key] || {};
+    const sent = kind === "in" ? (st.checked_in_at ? " > ส่งอินแล้ว" : "") : (st.checked_out_at ? " > ส่งเอาท์แล้ว" : "");
+    return [PLAT_LINE[b.pkey] || ("▫️ " + (b.platform || "Other")), "🏠" + name(b) + sent, `${dShort(b.cin)} - ${dShort(b.cout)}`].join("\n");
+  };
+  return [
+    `📅 Check-in / Check-out ${dDots(d)}`,
+    `🟢 IN ${dLong(d)}`, "",
+    ins.length ? ins.map(b => block(b, "in")).join("\n\n") : "NO Have", "",
+    SEP_LINE,
+    `🔴 OUT ${dLong(d)}`, "",
+    outs.length ? outs.map(b => block(b, "out")).join("\n\n") : "NO Have"
+  ].join("\n");
+}
+// focusKey/kind: opened from one booking's แจ้ง button (its check-in or check-out day)
+function openDayNotice(d, focusKey, kind){
+  S._nDay = d; S._nKey = focusKey || null; S._nKind = kind || null;
+  const fb = focusKey && S.res.find(x => x.key === focusKey);
+  const fv = fb && fb.villaId && S.vmap.get(fb.villaId);
+  const o = (fv && fv.owner) || {}, h = (fv && fv.housekeeper) || {};
+  const { ins, outs, name } = dayMoves(d, focusKey);
+  const canMark = db && S.can.write;
+  const row = (b, k) => {
+    const st = S.stay[b.key] || {}, done = k === "in" ? st.checked_in_at : st.checked_out_at;
+    return `<div class="it" ${b.key === focusKey ? 'style="border-color:var(--accent)"' : ""}>
+      <span class="pill ${k}">${k === "in" ? "IN" : "OUT"}</span>
+      <span style="flex:1;min-width:140px"><b>${esc(name(b))}</b> <span class="muted">· ${esc(b.platform)} · ${esc(dShort(b.cin))} - ${esc(dShort(b.cout))}</span></span>
+      ${canMark ? `<button class="btn sm ${done ? "" : (k === "in" ? "ci" : "co")}" type="button" data-act="nmark" data-key="${esc(b.key)}" data-kind="${k}" ${done ? 'data-undo="1"' : ""}>${done ? "✓ " + (k === "in" ? "ส่งอินแล้ว" : "ส่งเอาท์แล้ว") + " · undo" : "Mark " + (k === "in" ? "ส่งอินแล้ว" : "ส่งเอาท์แล้ว")}</button>`
+        : (done ? `<span class="done ${k}">✓ ${k === "in" ? "ส่งอินแล้ว" : "ส่งเอาท์แล้ว"}</span>` : "")}
+    </div>`;
+  };
+  openModal(`
+    <header><h2>${fb ? `แจ้ง ${kind === "out" ? "Check-out" : "Check-in"} · ${esc(name(fb))}${fv ? ` <span class="mono muted">${esc(fv.villa_id)}</span>` : ""}` : `แจ้ง Check-in / Check-out ${sameDay(d, today()) ? "วันนี้" : esc(dLong(d))}`}</h2><button class="btn ghost icon" type="button" data-act="mclose" aria-label="Close">✕</button></header>
+    <div class="mb">
+      ${fb ? `<p class="muted" style="margin:0;font-size:13px">This notice covers only this booking${fb.bid ? " (#" + esc(fb.bid) + ")" : ""}, on its ${kind === "out" ? "check-out" : "check-in"} day ${esc(dLong(d))}.</p>`
+        : `<div class="qa" style="align-items:center"><label for="ndate" class="muted" style="font-size:13px">Date</label>
+          <input class="inp" id="ndate" type="date" value="${isoDate(d)}" style="max-width:200px">
+          <button class="btn sm" type="button" data-act="nday" data-delta="-1" aria-label="Previous day">‹</button>
+          <button class="btn sm" type="button" data-act="nday" data-delta="0">Today</button>
+          <button class="btn sm" type="button" data-act="nday" data-delta="1" aria-label="Next day">›</button></div>
+        <p class="muted" style="margin:0;font-size:13px">Every check-in and check-out on ${esc(dLong(d))}: ${ins.length} IN, ${outs.length} OUT.</p>`}
+      <div class="f"><label for="nmsg">Message (edit before sending)</label><textarea class="inp msg" id="nmsg" style="min-height:240px">${esc(dayNoticeText(d, focusKey))}</textarea></div>
+      <div class="qa">
+        <button class="btn sm" type="button" data-act="ncopy">${ICON.copy} Copy message</button>
+        ${fv && o.line_link ? `<a class="btn line sm" href="${esc(o.line_link)}" target="_blank" rel="noopener" data-copymsg="1">${lineIcon} Copy &amp; open Owner LINE</a>` : ""}
+        ${fv && h.line_link ? `<a class="btn line sm" href="${esc(h.line_link)}" target="_blank" rel="noopener" data-copymsg="1">${lineIcon} Copy &amp; open Housekeeper LINE</a>` : ""}
+        <a class="btn line sm" href="${LINE_HOME}" target="_blank" rel="noopener" data-copymsg="1">${lineIcon} Copy &amp; open LINE</a>
+      </div>
+      ${ins.length || outs.length ? `<section class="panel" style="padding:12px"><div class="mini">${ins.map(b => row(b, "in")).join("")}${outs.map(b => row(b, "out")).join("")}</div>
+          <p class="muted" style="margin:0;font-size:12.5px">Marking adds “> ส่งอินแล้ว” or “> ส่งเอาท์แล้ว” after the villa in the message.</p></section>` : ""}
+      <div id="nErr" class="banner err" hidden></div>
+    </div>
+    <footer><button class="btn l" type="button" data-act="mclose">Close</button><button class="btn primary" type="button" data-act="ncopy">${ICON.copy} Copy message</button></footer>`, false);
+  const nd = $("#ndate");
+  if (nd) nd.addEventListener("change", e => { const x = parseDate(e.target.value); if (x) openDayNotice(x); });
+}
+async function markStay(key, kind, undo){
+  const b = S.res.find(x => x.key === key), field = kind === "in" ? "checked_in_at" : "checked_out_at";
+  const cur = { ...(S.stay[key] || {}) };
+  cur[field] = undo ? "" : new Date().toISOString();
+  cur.villa_id = (b && b.villaId) || cur.villa_id || ""; cur.booking_id = (b && b.bid) || "";
+  try {
+    await db.doc("stay_status/" + key).set(cur);
+    S.stay[key] = cur;
+    toast(undo ? "Mark cleared" : (kind === "in" ? "Marked ส่งอินแล้ว" : "Marked ส่งเอาท์แล้ว"));
+    if (S._nDay && $("#nmsg")) openDayNotice(S._nDay, S._nKey, S._nKind); // refresh the message with the new mark
+    render();
+  } catch (e) { const el = $("#nErr"); if (el) { el.textContent = writeErr(e); el.hidden = false; } }
+}
+
+/* ---------- events ---------- */
+$("#refresh").addEventListener("click", () => loadSheet(true));
+document.addEventListener("change", e => { if (e.target.closest(".toolbar")) updateFilterCounts(); });
+window.addEventListener("hashchange", () => setTimeout(updateFilterCounts, 0));
+$("#scrim").addEventListener("click", closeModal);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("#modalRoot").innerHTML) closeModal();
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches(".cell[data-day]")) { e.preventDefault(); e.target.click(); }
+});
+document.addEventListener("click", e => {
+  const t = e.target.closest("button,a,[data-day]"); if (!t) return;
+  const ds = t.dataset;
+  if (ds.copy) { copyText(ds.copy, ds.copyLabel); if (t.tagName === "A") return; e.preventDefault(); return; }
+  if (ds.copymsg) { const m = $("#nmsg"); if (m) copyText(m.value, "Message copied"); return; }
+  if (ds.notify) { const b = S.res.find(x => x.key === ds.key); if (b) openDayNotice(ds.notify === "in" ? b.cin : (b.cout || b.cin), b.key, ds.notify); return; }
+  if (ds.dayn) { openDayNotice(new Date(+ds.dayn)); return; }
+  if (t.tagName === "A") return;
+  if (ds.sort) { S.sort = { k:ds.sort, d:S.sort.k === ds.sort ? -S.sort.d : 1 }; ls.set("sort", S.sort); drawVillaTable(); return; }
+  if (ds.page) { S.page = +ds.page; drawVillaTable(); $("#vtable").scrollIntoView({ block:"start", behavior:"smooth" }); return; }
+  if (ds.vstat !== undefined) { S.vStatus = S.vStatus === ds.vstat ? "" : ds.vstat; $("#vStatus").value = S.vStatus; S.page = 1; drawVillaTable(); return; }
+  if (ds.edit) { openForm(ds.edit, ds.focus); return; }
+  if (ds.del) { confirmDelete(ds.del); return; }
+  if (ds.tab) { S.tab = ds.tab; renderPage(); return; }
+  if (ds.hmode) { S.histMode = ds.hmode; renderPage(); return; }
+  if (ds.link) { openLinkPicker(ds.link); return; }
+  if (ds.bedit) { openBookingForm(ds.bedit); return; }
+  if (ds.pick) { saveLink(ds.key, ds.pick); return; }
+  if (ds.rng) { S.rng = ds.rng; S.bFrom = S.bTo = ""; ls.set("rng", S.rng); if ($("#rng")) { $("#rng").value = S.rng; $("#bFrom").value = ""; $("#bTo").value = ""; } drawBookings(); return; }
+  if (ds.unl) { S.bStatus = S.bStatus === "unlinked" ? "" : "unlinked"; S.rng = "all"; $("#bStatus").value = S.bStatus; $("#rng").value = "all"; drawBookings(); return; }
+  if (ds.cal !== undefined) {
+    const n = +ds.cal, key = ds.scope === "hist" ? "hCal" : "calMonth", sel = ds.scope === "hist" ? "hSel" : "selDay";
+    const cur = S[key] || startOfMonth(today());
+    S[key] = n === 0 ? startOfMonth(today()) : new Date(cur.getFullYear(), cur.getMonth() + n, 1);
+    if (n === 0) S[sel] = today();
+    ds.scope === "hist" ? renderPage() : drawCalendar(); return;
+  }
+  if (ds.day) {
+    const d = new Date(+ds.day), sel = ds.scope === "hist" ? "hSel" : "selDay";
+    S[sel] = sameDay(S[sel], d) ? null : d;
+    ds.scope === "hist" ? renderPage() : drawCalendar(); return;
+  }
+  switch (ds.act) {
+    case "retry": loadSheet(true); break;
+    case "add": openForm(null); break;
+    case "badd": openBookingForm(null); break;
+    case "ntoday": openDayNotice(today()); break;
+    case "ftoggle": { const tb = t.closest(".toolbar"); const open = tb.classList.toggle("open"); t.setAttribute("aria-expanded", String(open)); break; }
+    case "bsave": saveBooking(); break;
+    case "ncopy": copyText($("#nmsg").value, "Message copied"); break;
+    case "nday": { const n = +ds.delta; openDayNotice(n === 0 ? today() : addDays(S._nDay || today(), n), S._nKey, S._nKind); break; }
+    case "nmark": markStay(ds.key, ds.kind, !!ds.undo); break;
+    case "sync": syncFromSheet(); break;
+    case "dosync": doSync(); break;
+    case "mclose": closeModal(); break;
+    case "save": saveVilla(ds.id || null, !!ds.more); break;
+    case "dodel": doDelete(ds.id); break;
+    case "unlink": saveLink(ds.key, null); break;
+    case "ladd": { const w = document.createElement("div"); w.innerHTML = listingRow({ platform:"Airbnb", property_name:"", listing_id:"", listing_url:"", status:"Listed", notes:"" }); const row = w.firstElementChild; $("#lrows").appendChild(row); row.querySelector('[data-l="property_name"]').focus(); break; }
+    case "lrm": t.closest("[data-lrow]").remove(); break;
+    case "reveal": S.reveal = !S.reveal; renderPage(); break;
+    case "rngAll": S.rng = "all"; S.bFrom = S.bTo = ""; ls.set("rng", "all"); if ($("#rng")) { $("#rng").value = "all"; $("#bFrom").value = ""; $("#bTo").value = ""; } drawBookings(); break;
+    case "dsearch": applyDates(true); break;
+    case "dclear": S.bFrom = S.bTo = ""; $("#bFrom").value = ""; $("#bTo").value = ""; if (S.rng === "custom") { S.rng = "all"; $("#rng").value = "all"; } drawBookings(); break;
+    case "vreset":
+      S.vq = ""; S.vStatus = S.vPlat = S.vRooms = S.vOwner = S.vHk = ""; S.page = 1;
+      ["vq","vStatus","vPlat","vRooms","vOwner","vHk"].forEach(id => { const el = $("#" + id); if (el) el.value = ""; });
+      drawVillaTable(); break;
+  }
+});
+
+/* ---------- boot ---------- */
+S.route = parseRoute();
+render();
+initStore();
+loadSheet(false);
+})();
+</script>
+
+</body></html>
