@@ -2,8 +2,9 @@
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}
-/* GitHub Pages build is read-only: hide controls that write to the sheet or the shared database */
+/* GitHub Pages build: hide controls that need the claude.ai shared database or write access to the sheet */
 [data-act="badd"],[data-bedit],[data-act="nmark"]{display:none!important}</style>
+
 </head><body>
 <title>Villa Board</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1748,7 +1749,7 @@ async function saveBooking(){
     const m = { needs_reauth:"Google Sheets connection expired. Reconnect it in claude.ai Settings → Connectors.", server_not_connected:"Saving needs the Google Sheets connector, available when this page is opened on claude.ai.",
       approval_required:"Allow this page to edit Google Sheets, then press Save again.", not_in_manifest:"Editing Google Sheets is turned off for this page in its Permissions menu.",
       tool_error:"Google Sheets refused the change. Check that your Google account can edit this sheet.",
-      moved:"This booking's row moved or was removed in the sheet. Close the form, press Refresh, and edit it again." }[e && e.code];
+      bad_pin:"รหัส PIN ไม่ถูกต้อง กด Save อีกครั้งแล้วใส่ PIN ใหม่", no_pin:"ต้องใส่ PIN ก่อนบันทึก กด Save อีกครั้ง", net:"ติดต่อ Google Sheet ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง", moved:"This booking's row moved or was removed in the sheet. Close the form, press Refresh, and edit it again." }[e && e.code];
     err.textContent = m || ("The booking may not have been saved" + (e && e.message ? ": " + e.message : "") + ". Press Refresh and check the sheet before trying again.");
     err.hidden = false;
   } finally { bSaving = false; const b = $("#bsave"); if (b) { b.disabled = false; b.textContent = S._bOverlapOk ? "Save anyway" : (S._bEdit ? "Save changes" : "Save booking"); } }
