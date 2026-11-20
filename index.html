@@ -88,8 +88,8 @@ h1,h2,h3{text-wrap:balance}
   .nav a[aria-current="page"]{background:var(--accent-soft)}
   .sidefoot{margin:0 0 0 auto;flex-direction:row;align-items:center;gap:8px;padding:0}
   .sync{font-size:11.5px}
-  main .wrap{padding-block:14px calc(90px + env(safe-area-inset-bottom,0px))}
-  .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  main .wrap{padding-block:14px calc(150px + env(safe-area-inset-bottom,0px))}
+  .toast{bottom:calc(140px + env(safe-area-inset-bottom,0px))}
 }
 
 /* buttons & inputs */
@@ -212,6 +212,26 @@ table.vt{width:100%;border-collapse:collapse;min-width:1040px}
 /* booking list */
 .bl{display:flex;flex-direction:column;gap:8px}
 .bday{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.3px;margin-top:6px}
+.ic{width:15px;height:15px;flex:none;vertical-align:-2px}
+.bk .vn{display:block}
+.bk .vn .ic{color:var(--accent);margin-right:5px;vertical-align:-2px}
+.bk .meta .gi{display:inline-flex;align-items:center;gap:4px}
+/* Check-in / Check-out / Staying sections for a date filter */
+.secs{display:flex;gap:8px;flex-wrap:wrap}
+.secs button{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.secs button b{font-variant-numeric:tabular-nums}
+.secs button.in{border-color:var(--in);color:var(--in)} .secs button.out{border-color:var(--out);color:var(--out)} .secs button.stay{border-color:var(--stay);color:var(--stay)}
+.secs button:hover{background:var(--surface-2)}
+.sech{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;font-weight:600;scroll-margin-top:12px}
+.sech .n{min-width:24px;height:22px;padding:0 7px;border-radius:999px;display:inline-grid;place-items:center;font-size:12.5px}
+.sech.in .n{background:var(--in-soft);color:var(--in)} .sech.out .n{background:var(--out-soft);color:var(--out)} .sech.stay .n{background:var(--stay-soft);color:var(--stay)}
+.sech .sub{font-weight:400;font-size:12.5px;color:var(--muted)}
+.secempty{font-size:13px;color:var(--muted);padding:2px 2px 4px}
+/* floating Add booking button, on every page */
+.fab{position:fixed;z-index:36;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px));height:50px;padding:0 20px 0 16px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-fg);font:inherit;font-weight:600;font-size:14.5px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 6px 20px rgba(14,107,90,.35),0 2px 6px rgba(0,0,0,.12)}
+.fab svg{width:20px;height:20px}
+.fab:hover{filter:brightness(1.08)}
+.fab:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}
 .bk{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 16px;align-items:start;font-size:13px}
 .bk .dates{display:flex;flex-direction:column;gap:2px;font-size:12.5px;white-space:nowrap}
 .bk .side{height:auto;position:static}
@@ -381,6 +401,14 @@ legend{font-weight:600;font-size:14.5px;padding:0;margin-bottom:4px}
   .bar.e{margin-right:2px;border-right-width:2px}
   .calhead h2{font-size:16px}
 }
+/* room for the floating Add booking button; keep toasts above it */
+main .wrap{padding-bottom:96px}
+.toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+@media (max-width:900px){
+  .fab{bottom:calc(80px + env(safe-area-inset-bottom,0px));right:max(14px,env(safe-area-inset-right,0px));height:48px}
+  main .wrap{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  .toast{bottom:calc(140px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 
 <div class="app">
@@ -409,6 +437,7 @@ legend{font-weight:600;font-size:14.5px;padding:0;margin-bottom:4px}
 <div class="scrim" id="scrim" hidden></div>
 <div id="modalRoot"></div>
 <div class="toast" id="toast" hidden role="status"></div>
+<button class="fab" id="fab" type="button" data-act="badd" aria-label="Add new booking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add booking</button>
 
 <script>
 (() => {
@@ -864,7 +893,10 @@ const ICON = {
   back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>`,
   search:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
   lock:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`,
-  sync:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>`
+  sync:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>`,
+  home:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>`,
+  user:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>`,
+  users:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 15.3c2 .6 3.1 2.2 3.5 4.7"/></svg>`
 };
 // Phones: one "Filters" button opens the filter controls under the search box; the count shows how many are active.
 function ftoggleBtn(){
@@ -1200,7 +1232,8 @@ function bookingRow(b, d, opt = {}){
   const st = d ? stateOf(b, d) : "";
   const tag = st === "in" ? `<span class="pill in">Check-in</span>` : st === "out" ? `<span class="pill out">Check-out</span>` : st === "stay" ? `<span class="pill stay">Staying</span>` : "";
   const v = b.villaId && S.vmap.get(b.villaId);
-  const name = v ? `<a href="#villa-${esc(v.villa_id)}">${hl(vName(v), S.bq)}</a> <span class="mono muted">${esc(v.villa_id)}</span>` : `<span class="unl">Not linked to a villa</span>`;
+  const name = v ? `${ICON.home}<a href="#villa-${esc(v.villa_id)}">${hl(vName(v), S.bq)}</a> <span class="mono muted">${esc(v.villa_id)}</span>` : `${ICON.home}<span class="unl">Not linked to a villa</span>`;
+  const tag2 = opt.tag || tag;
   const linkBtn = b.pending ? "" : `<button class="btn sm" type="button" data-bedit="${esc(b.key)}" title="Edit or add details to this booking">${ICON.edit} Edit</button>`;
   return `<div class="bk ${S.flash === b.key ? "flash" : ""}" data-bkey="${esc(b.key)}">
     <div class="dates num">
@@ -1210,13 +1243,13 @@ function bookingRow(b, d, opt = {}){
     </div>
     <div class="who">
       <span class="booked num">Reservation date: ${b.bookedAt ? esc(fmtDY(b.bookedAt)) : "not recorded"}</span>
-      ${opt.inVilla ? `<b>${hl(b.guest || "Guest", S.bq)}</b>` : `<div>${name}</div>`}
-      <div class="meta">${opt.inVilla ? "" : `<span>${hl(b.guest || "—", S.bq)}</span>`}${b.guests ? `<span>${esc(b.guests)} guests</span>` : ""}${platBadge(b.platform)}${b.bid ? `<span class="mono">#${hl(b.bid, S.bq)}</span>` : ""}</div>
+      ${opt.inVilla ? `<b class="vn">${ICON.user}${hl(b.guest || "Guest", S.bq)}</b>` : `<div class="vn">${name}</div>`}
+      <div class="meta">${opt.inVilla ? "" : `<span class="gi" title="Guest name">${ICON.user}${hl(b.guest || "—", S.bq)}</span>`}${b.guests ? `<span class="gi" title="Number of guests">${ICON.users}${esc(b.guests)}</span>` : ""}${platBadge(b.platform)}${b.bid ? `<span class="mono">#${hl(b.bid, S.bq)}</span>` : ""}</div>
       ${!opt.inVilla && b.sheetVilla && (!v || b.linkHow === "manual") ? `<div class="meta">Sheet name: “${esc(b.sheetVilla)}”${b.linkHow === "manual" ? " · linked by hand" : ""}</div>` : ""}
       ${b.note ? `<div class="meta">${esc(b.note)}</div>` : ""}
     </div>
     <div class="side">
-      <div class="pbs" style="justify-content:flex-end">${b.pending ? `<span class="pill neutral" title="Saved to the sheet; waiting for the sheet to return it">New · syncing</span>` : ""}${tag}${statusPill(b.status)}</div>
+      <div class="pbs" style="justify-content:flex-end">${b.pending ? `<span class="pill neutral" title="Saved to the sheet; waiting for the sheet to return it">New · syncing</span>` : ""}${tag2}${statusPill(b.status)}</div>
       ${b.amount ? `<span class="amt num">${fmtAmt(b.amount)}</span>` : ""}
     </div>
     <div class="acts2">${notifyBtns(b)}<span class="sp"></span>${linkBtn}${v ? lineBtn(v.owner && v.owner.line_link, v.owner && v.owner.line_group, "sm") : ""}</div>
@@ -1226,9 +1259,59 @@ function renderBookingList(el, list, opt = {}){
   if (!S.resReady) { el.innerHTML = `<div class="empty">Loading bookings…</div>`; return; }
   if (!list.length) { el.innerHTML = `<div class="empty">No bookings in this view.${!opt.inVilla && S.rng !== "all" ? `<button class="btn sm" type="button" data-act="rngAll">Show all bookings</button>` : ""}</div>`; return; }
   if (opt.inVilla) { el.innerHTML = `<div class="bl">${list.map(b => bookingRow(b, null, opt)).join("")}</div>`; return; }
+  const w = dateWindow();
+  if (w && w.kinds) { el.innerHTML = moveSections(list, w.from, w.to, w.kinds, { scope:"b" }); return; }
+  const byBooked = w && w.booked;
+  const key = b => byBooked ? b.bookedAt : b.cin;
+  const rows = byBooked ? list.slice().sort((a, z) => (key(a) || 0) - (key(z) || 0) || (a.cin || 0) - (z.cin || 0)) : list;
   const groups = new Map();
-  list.forEach(b => { const k = b.cin ? b.cin.getTime() : 0; if (!groups.has(k)) groups.set(k, { d:b.cin, items:[] }); groups.get(k).items.push(b); });
-  el.innerHTML = `<div class="bl">${[...groups.values()].map(g => `<div class="bday">Check-in ${esc(fmtDY(g.d))}${sameDay(g.d, today()) ? " · Today" : ""}</div>${g.items.map(b => bookingRow(b)).join("")}`).join("")}</div>`;
+  rows.forEach(b => { const d = key(b), k = d ? d.getTime() : 0; if (!groups.has(k)) groups.set(k, { d, items:[] }); groups.get(k).items.push(b); });
+  el.innerHTML = `<div class="bl">${[...groups.values()].map(g => `<div class="bday">${byBooked ? "Reserved" : "Check-in"} ${g.d ? esc(fmtDY(g.d)) : "— no date"}${sameDay(g.d, today()) ? " · Today" : ""}</div>${g.items.map(b => bookingRow(b)).join("")}`).join("")}</div>`;
+}
+// The dates the current Booking filter covers. kinds = which sections to show (null: list by check-in date as before).
+function dateWindow(){
+  const t = today(), all = ["in","out","stay"];
+  if (S.rng === "today") return { from:t, to:t, kinds:all };
+  if (S.rng === "7d") return { from:t, to:addDays(t, 7), kinds:all };
+  if (S.rng === "month") return { from:startOfMonth(t), to:new Date(t.getFullYear(), t.getMonth() + 1, 0), kinds:all };
+  if (S.rng === "custom" && (S.bFrom || S.bTo)) {
+    const from = S.bFrom ? parseDate(S.bFrom) : null, to = S.bTo ? parseDate(S.bTo) : null;
+    if (S.bDateBy === "booked") return { from, to, booked:true };
+    return { from, to, kinds: S.bDateBy === "cin" ? ["in"] : S.bDateBy === "cout" ? ["out"] : all };
+  }
+  return null;
+}
+// Bookings split into Check-in → Check-out → Staying for a date or a date range, each with its count.
+// Staying = in the villa the whole time (checked in before, leaves after). A booking that checks in and out inside the range is listed under both.
+function moveSections(list, from, to, kinds, opt = {}){
+  const inR = d => !!d && (!from || d >= from) && (!to || d <= to);
+  const oneDay = from && to && sameDay(from, to);
+  const byName = (a, z) => { const n = b => { const v = b.villaId && S.vmap.get(b.villaId); return v ? vName(v) : (b.sheetVilla || ""); }; return n(a).localeCompare(n(z)); };
+  const sec = {
+    in:   list.filter(b => inR(b.cin)).sort((a, z) => a.cin - z.cin || byName(a, z)),
+    out:  list.filter(b => b.cout && inR(b.cout)).sort((a, z) => a.cout - z.cout || byName(a, z)),
+    stay: from && to ? list.filter(b => b.cin && b.cout && b.cin < from && b.cout > to).sort((a, z) => a.cout - z.cout || byName(a, z)) : []
+  };
+  const meta = {
+    in:   { pill:`<span class="pill in">IN</span>`,  label:"Check-in",  tag:`<span class="pill in">Check-in</span>`, when:b => b.cin, none:"ไม่มีเช็คอิน · NO Have" },
+    out:  { pill:`<span class="pill out">OUT</span>`, label:"Check-out", tag:`<span class="pill out">Check-out</span>`, when:b => b.cout, none:"ไม่มีเช็คเอาท์ · NO Have" },
+    stay: { pill:`<span class="pill stay">STAY</span>`, label:"Staying", tag:`<span class="pill stay">Staying</span>`, when:null, none:"ไม่มีแขกพักต่อ · NO Have" }
+  };
+  const span = oneDay ? fmtDY(from) : `${from ? fmtD(from) : "…"} – ${to ? fmtD(to) : "…"}`;
+  const id = k => `sec-${opt.scope || "b"}-${k}`;
+  const chips = `<div class="secs">${kinds.map(k => `<button class="${k}" type="button" data-jump="${id(k)}">${meta[k].label} <b>${sec[k].length}</b></button>`).join("")}</div>`;
+  const body = kinds.map(k => {
+    const m = meta[k], items = sec[k];
+    let rows = "";
+    if (!items.length) rows = `<div class="secempty">${m.none}</div>`;
+    else if (oneDay || !m.when) rows = items.map(b => bookingRow(b, null, { ...opt, tag:m.tag })).join("");
+    else {
+      let last = null;
+      rows = items.map(b => { const d = m.when(b), h = !sameDay(d, last) ? `<div class="bday">${esc(fmtDY(d))}${sameDay(d, today()) ? " · Today" : ""}</div>` : ""; last = d; return h + bookingRow(b, null, { ...opt, tag:m.tag }); }).join("");
+    }
+    return `<div class="sech ${k}" id="${id(k)}">${m.pill} ${m.label} <span class="n num">${items.length}</span><span class="sub">${esc(span)}</span></div>${rows}`;
+  }).join("");
+  return `<div class="bl">${kinds.length > 1 ? chips : ""}${body}</div>`;
 }
 function bookingPass(b, ignoreRange){
   if (S.bPlat && b.pkey !== S.bPlat) return false;
@@ -1316,8 +1399,7 @@ function renderBookings(){
     S.mounted = "bookings";
     el.innerHTML = `<div style="display:flex;flex-direction:column;gap:16px">
       <div class="phead"><div><h1>Booking</h1><p>Check-ins and check-outs from the Google Sheet's Reservation tab, linked to villas by Villa ID.</p></div>
-        <button class="btn" type="button" data-act="ntoday">${lineIcon} แจ้ง Check-in / Check-out วันนี้</button>
-        <button class="btn primary" type="button" data-act="badd">${ICON.plus} Add booking</button></div>
+        <button class="btn" type="button" data-act="ntoday">${lineIcon} แจ้ง Check-in / Check-out วันนี้</button></div>
       <div class="stats" id="bstats"></div>${bookingToolbar(true)}<div id="blist"></div></div>`;
     wireBookingToolbar(drawBookings);
   }
@@ -1394,7 +1476,11 @@ function renderCal(el, list, o){
   let panel = "";
   if (o.sel) {
     const items = live.filter(b => stateOf(b, o.sel));
-    panel = `<div style="display:flex;flex-direction:column;gap:8px"><div class="calhead"><h2 style="font-size:15px">${esc(fmtDY(o.sel))}</h2></div>${items.length ? `<div class="bl">${items.map(b => bookingRow(b, o.sel, { inVilla:o.inVilla })).join("")}</div>` : `<div class="empty">No check-ins, check-outs or stays on this day.</div>`}</div>`;
+    const n = k => items.filter(b => stateOf(b, o.sel) === k).length;
+    panel = `<div class="cpanel" id="cpanel-${esc(o.scope)}" style="display:flex;flex-direction:column;gap:8px;scroll-margin-top:12px">
+      <div class="calhead"><h2 style="font-size:15px">${esc(fmtDY(o.sel))}${sameDay(o.sel, t) ? " · Today" : ""}</h2>
+        <span class="muted" style="font-size:13px">${items.length} booking${items.length === 1 ? "" : "s"}: ${n("in")} check-in · ${n("out")} check-out · ${n("stay")} staying</span></div>
+      ${items.length ? moveSections(items, o.sel, o.sel, ["in","out","stay"], { inVilla:o.inVilla, scope:o.scope }) : `<div class="empty">No check-ins, check-outs or stays on this day.</div>`}</div>`;
   }
   el.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
     <div class="calhead"><h2>${esc(fmtMonth(m))}</h2>
@@ -1904,6 +1990,7 @@ document.addEventListener("click", e => {
   if (ds.copymsg) { const m = $("#nmsg"); if (m) copyText(m.value, "Message copied"); return; }
   if (ds.notify) { const b = S.res.find(x => x.key === ds.key); if (b) openDayNotice(ds.notify === "in" ? b.cin : (b.cout || b.cin), b.key, ds.notify); return; }
   if (ds.dayn) { openDayNotice(new Date(+ds.dayn)); return; }
+  if (ds.jump) { const s = document.getElementById(ds.jump); if (s) s.scrollIntoView({ block:"start", behavior:"smooth" }); return; }
   if (t.tagName === "A") return;
   if (ds.sort) { S.sort = { k:ds.sort, d:S.sort.k === ds.sort ? -S.sort.d : 1 }; ls.set("sort", S.sort); drawVillaTable(); return; }
   if (ds.page) { S.page = +ds.page; drawVillaTable(); $("#vtable").scrollIntoView({ block:"start", behavior:"smooth" }); return; }
@@ -1927,7 +2014,10 @@ document.addEventListener("click", e => {
   if (ds.day) {
     const d = new Date(+ds.day), sel = ds.scope === "hist" ? "hSel" : "selDay";
     S[sel] = sameDay(S[sel], d) ? null : d;
-    ds.scope === "hist" ? renderPage() : drawCalendar(); return;
+    ds.scope === "hist" ? renderPage() : drawCalendar();
+    // bring the day's list into view (it sits under the month grid, often off-screen on phones)
+    if (S[sel]) setTimeout(() => { const p = document.getElementById("cpanel-" + (ds.scope || "main")); if (p) p.scrollIntoView({ block:"start", behavior:"smooth" }); }, 30);
+    return;
   }
   switch (ds.act) {
     case "retry": loadSheet(true); break;
