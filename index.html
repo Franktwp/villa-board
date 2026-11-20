@@ -1437,6 +1437,7 @@ function renderCalendarPage(){
   drawCalendar();
 }
 function drawCalendar(){ const w = $("#cwrap"); if (w) renderCal(w, S.res.filter(b => bookingPass(b, true)), { month:S.calMonth, sel:S.selDay, scope:"main" }); }
+const BAR_PLAT = { airbnb:"Airbnb", booking:"Booking", agoda:"Agoda", trip:"Trip", direct:"Direct", other:"Other" };
 function renderCal(el, list, o){
   if (!S.resReady) { el.innerHTML = `<div class="empty">Loading bookings…</div>`; return; }
   const m = o.month, t = today(), first = new Date(m.getFullYear(), m.getMonth(), 1), start = addDays(first, -first.getDay());
@@ -1463,8 +1464,10 @@ function renderCal(el, list, o){
     }
     const bars = segs.map(sg => {
       const b = sg.b, v = b.villaId && S.vmap.get(b.villaId);
-      const txt = o.inVilla ? label(b) : `${label(b)}${b.guest ? " · " + b.guest : ""}`;
-      const tip = `${label(b)} — ${b.guest || "Guest"} · ${fmtD(b.cin)} → ${fmtD(b.cout)}${b.status ? " · " + b.status : ""}`;
+      // bar text: Villa / booking channel (e.g. "ForFam / Booking")
+      const ch = BAR_PLAT[b.pkey] || b.platform || "";
+      const txt = o.inVilla ? `${b.guest || "Guest"}${ch ? " / " + ch : ""}` : `${label(b) || "Not linked"}${ch ? " / " + ch : ""}`;
+      const tip = `${label(b)} / ${b.platform || "—"} — ${b.guest || "Guest"} · ${fmtD(b.cin)} → ${fmtD(b.cout)}${b.status ? " · " + b.status : ""}`;
       const cls = `bar ${sg.starts ? "s" : ""} ${sg.ends ? "e" : ""} ${isCancelled(b) ? "x" : ""} ${v ? "" : "unl"}`;
       const style = `grid-column:${sg.c1} / ${sg.c2};grid-row:${sg.lane + 2}`;
       const inner = `${sg.starts ? "" : "… "}${esc(txt)}`;
