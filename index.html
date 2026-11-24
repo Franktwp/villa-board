@@ -461,7 +461,7 @@ main .wrap{padding-bottom:96px}
    ============================================================ */
 const SHEET_ID = "14wKzPRBXoMwkn53cp3csjuzt3RyRTrD6EMp1zHybqIA";
 const TABS = {
-  villas: { gid: "289127522",  range: "'OTA Villa Matching'!A1:H" },
+  villas: { gid: "289127522",  range: "'OTA Villa Matching'!A1:Z" },
   res:    { gid: "1808433811", range: "Reservation!A1:K" }
 };
 const PLATS = [
@@ -506,10 +506,17 @@ function blankVilla(){
 function mapSheetRows(rows){
   const nz = s => String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
   const out = [], seen = new Set();
+  // Find columns by their header text, so inserting or moving a column in the sheet doesn't shift the data.
+  const hdr = ((rows && rows[0]) || []).map(nz);
+  const col = (alts, fallback) => { for (const a of alts) { const i = hdr.indexOf(nz(a)); if (i >= 0) return i; } return hdr.length ? -1 : fallback; };
+  const C = { group:col(["Linegroup","LINE group"], 0), owner:col(["Owner","เจ้าของ"], -1), airbnb:col(["Airbnb"], 1), booking:col(["Booking","Booking.com"], 2),
+    trip:col(["Trip","Trip.com"], 3), agoda:col(["Agoda"], 4), note:col(["หมายเหตุ","Note","Notes"], 5), line:col(["LINE Link","Line link","LINE URL"], 6), short:col(["Short Name","ShortName","ชื่อย่อ"], 7) };
+  // only a real web address counts as a LINE link (a note typed in the column must not become a link)
+  const asLink = s => /^https?:\/\//i.test(s) ? s : /^line\.me\//i.test(s) ? "https://" + s : "";
   (rows || []).slice(1).forEach((r, i) => {
-    const c = k => String((r && r[k]) ?? "").trim();
-    const names = { airbnb:c(1), booking:c(2), trip:c(3), agoda:c(4) };
-    const group = c(0), note = c(5), line = c(6), short = c(7);
+    const c = k => k < 0 ? "" : String((r && r[k]) ?? "").trim();
+    const names = { airbnb:c(C.airbnb), booking:c(C.booking), trip:c(C.trip), agoda:c(C.agoda) };
+    const group = c(C.group), note = c(C.note), line = asLink(c(C.line)), short = c(C.short), ownerName = c(C.owner);
     if (!names.airbnb && !names.booking && !names.trip && !names.agoda && !short) return;
     const key = [names.airbnb, names.booking, names.trip, names.agoda, short].map(nz).join("|");
     if (seen.has(key)) return; seen.add(key);
@@ -533,7 +540,7 @@ function mapSheetRows(rows){
     v.bedrooms = br ? +br[1] : null; v.rooms = v.bedrooms; v.bathrooms = ba ? +ba[1] : null;
     v.max_guests = pg ? +pg[1] : null;
     v.notes = note;
-    v.owner.line_group = group; v.owner.line_link = line;
+    v.owner.line_group = group; v.owner.line_link = line; v.owner.name = ownerName;
     [["airbnb","Airbnb"],["booking","Booking.com"],["agoda","Agoda"],["trip","Trip.com"]].forEach(([k, label]) => {
       if (names[k]) v.listings.push({ platform:label, property_name:names[k], listing_id:"", listing_url:"", status:"Listed", notes:"" });
     });
@@ -911,6 +918,7 @@ function updateFilterCounts(){
   });
 }
 function lineBtn(link, group, cls = ""){
+  link = /^https?:\/\//i.test(String(link || "").trim()) ? String(link).trim() : "";
   if (link) return `<a class="btn line ${cls}" href="${esc(link)}" target="_blank" rel="noopener">${lineIcon} Open LINE</a>`;
   return `<a class="btn line ${cls}" href="${LINE_HOME}" target="_blank" rel="noopener" ${group ? `data-copy="${esc(group)}" data-copy-label="LINE group name copied"` : ""} title="No group link saved — opens LINE${group ? " and copies the group name" : ""}">${lineIcon} Open LINE</a>`;
 }
